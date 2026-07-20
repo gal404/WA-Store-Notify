@@ -1,0 +1,251 @@
+<?php
+defined('ABSPATH') || exit;
+
+class WSN_Admin
+{
+    const CAP = 'manage_wa_notify';
+
+    public static function init(): void
+    {
+        add_action('admin_menu', [__CLASS__, 'menu']);
+        add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
+        add_action('admin_post_wsn_save_settings', [__CLASS__, 'handle_save_settings']);
+        add_action('admin_post_wsn_save_templates', [__CLASS__, 'handle_save_templates']);
+        add_action('admin_post_wsn_api_key', [__CLASS__, 'handle_api_key']);
+        add_action('admin_post_wsn_resume_breaker', [__CLASS__, 'handle_resume_breaker']);
+        add_action('admin_post_wsn_toggle_pause', [__CLASS__, 'handle_toggle_pause']);
+        add_action('admin_post_wsn_export_contacts', [__CLASS__, 'handle_export_contacts']);
+        add_action('admin_post_wsn_campaign_create', [__CLASS__, 'handle_campaign_create']);
+        add_action('admin_post_wsn_campaign_action', [__CLASS__, 'handle_campaign_action']);
+        add_action('admin_post_wsn_send_test', [__CLASS__, 'handle_send_test']);
+        add_action('wp_ajax_wsn_audience_count', [__CLASS__, 'ajax_audience_count']);
+    }
+
+    public static function menu(): void
+    {
+        add_menu_page('וואטסאפ לחנות', 'וואטסאפ לחנות', self::CAP, 'wsn-status',
+            [__CLASS__, 'page_status'], 'dashicons-whatsapp', 56);
+        add_submenu_page('wsn-status', 'סטטוס', 'סטטוס', self::CAP, 'wsn-status', [__CLASS__, 'page_status']);
+        add_submenu_page('wsn-status', 'הגדרות', 'הגדרות', self::CAP, 'wsn-settings', [__CLASS__, 'page_settings']);
+        add_submenu_page('wsn-status', 'תבניות הודעה', 'תבניות', self::CAP, 'wsn-templates', [__CLASS__, 'page_templates']);
+        add_submenu_page('wsn-status', 'יומן הודעות', 'יומן', self::CAP, 'wsn-log', [__CLASS__, 'page_log']);
+        add_submenu_page('wsn-status', 'מועדון לקוחות', 'מועדון', self::CAP, 'wsn-contacts', [__CLASS__, 'page_contacts']);
+        add_submenu_page('wsn-status', 'קמפיינים', 'קמפיינים', self::CAP, 'wsn-campaigns', [__CLASS__, 'page_campaigns']);
+    }
+
+    public static function assets($hook): void
+    {
+        if (strpos((string) $hook, 'wsn-') === false) {
+            return;
+        }
+        wp_enqueue_style('wsn-admin', WSN_PLUGIN_URL . 'assets/css/admin.css', [], WSN_VERSION);
+        wp_enqueue_script('wsn-admin', WSN_PLUGIN_URL . 'assets/js/admin.js', [], WSN_VERSION, true);
+        wp_localize_script('wsn-admin', 'WSN', [
+            'ajax' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('wsn_admin'),
+        ]);
+    }
+
+    private static function guard(): void
+    {
+        if (!current_user_can(self::CAP)) {
+            wp_die('אין הרשאה');
+        }
+    }
+
+    private static function redirect(string $page, string $msg = '', string $type = 'ok'): void
+    {
+        wp_safe_redirect(add_query_arg(
+            ['page' => $page, 'wsn_msg' => rawurlencode($msg), 'wsn_type' => $type],
+            admin_url('admin.php')
+        ));
+        exit;
+    }
+
+    public static function notice(): void
+    {
+        if (empty($_GET['wsn_msg'])) {
+            return;
+        }
+        $type = ($_GET['wsn_type'] ?? 'ok') === 'err' ? 'error' : 'success';
+        printf('<div class="notice notice-%s is-dismissible"><p>%s</p></div>',
+            esc_attr($type), esc_html(rawurldecode(sanitize_text_field($_GET['wsn_msg']))));
+    }
+
+    private static function view(string $name, array $vars = []): void
+    {
+        extract($vars, EXTR_SKIP);
+        include WSN_PLUGIN_DIR . 'includes/admin/views/' . $name . '.php';
+    }
+
+    // ---- עמודים ----
+    public static function page_status(): void    { self::guard(); self::view('status'); }
+    public static function page_settings(): void  { self::guard(); self::view('settings', ['s' => WSN_Settings::all()]); }
+    public static function page_templates(): void { self::guard(); self::view('templates', ['templates' => WSN_Templates::all()]); }
+    public static function page_log(): void       { self::guard(); self::view('log'); }
+    public static function page_contacts(): void  { self::guard(); self::view('contacts'); }
+    public static function page_campaigns(): void { self::guard(); self::view('campaigns', ['campaigns' => WSN_Campaigns::all()]); }
+
+    // ---- handlers ----
+    public static function handle_save_settings(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_save_settings');
+        $in = wp_unslash($_POST);
+        $changes = [];
+        $ints = ['trans_min_gap_s', 'trans_max_gap_s', 'trans_hourly_cap', 'trans_daily_cap',
+            'camp_min_gap_s', 'camp_max_gap_s', 'camp_hourly_cap', 'camp_daily_cap',
+            'typo_ratio', 'expiry_hours', 'retention_days', 'warmup_enabled', 'checkout_optin_enabled'];
+        foreach ($ints as $k) {
+            $changes[$k] = max(0, (int) ($in[$k] ?? 0));
+        }
+        foreach (['quiet_from', 'quiet_to', 'camp_window_from', 'camp_window_to'] as $k) {
+            $changes[$k] = preg_match('/^\d{1,2}:\d{2}$/', $in[$k] ?? '') ? $in[$k] : WSN_Settings::get($k);
+        }
+        $changes['warmup_started'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', $in['warmup_started'] ?? '') ? $in['warmup_started'] : '';
+        $changes['tracking_meta_key'] = sanitize_text_field($in['tracking_meta_key'] ?? '');
+        $changes['optout_keywords'] = sanitize_textarea_field($in['optout_keywords'] ?? '');
+        $changes['checkout_optin_label'] = sanitize_text_field($in['checkout_optin_label'] ?? '');
+        $changes['test_phone'] = sanitize_text_field($in['test_phone'] ?? '');
+        $changes['alert_email'] = sanitize_email($in['alert_email'] ?? '');
+        $changes['delete_data_on_uninstall'] = (int) !empty($in['delete_data_on_uninstall']);
+        WSN_Settings::update($changes);
+        self::redirect('wsn-settings', 'ההגדרות נשמרו');
+    }
+
+    public static function handle_save_templates(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_save_templates');
+        $raw = (array) ($_POST['tpl'] ?? []);
+        $out = [];
+        foreach ($raw as $key => $data) {
+            $key = sanitize_key($key);
+            $variants = array_values(array_filter(
+                array_map('sanitize_textarea_field', (array) wp_unslash($data['variants'] ?? [])),
+                fn($v) => trim($v) !== ''
+            ));
+            $out[$key] = ['enabled' => (int) !empty($data['enabled']), 'variants' => $variants];
+        }
+        WSN_Templates::save($out);
+        self::redirect('wsn-templates', 'התבניות נשמרו');
+    }
+
+    public static function handle_api_key(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_api_key');
+        $key = WSN_Api_Key::generate();
+        set_transient('wsn_new_api_key', $key, 120); // מוצג פעם אחת
+        self::redirect('wsn-settings', 'נוצר מפתח API חדש — העתק אותו עכשיו');
+    }
+
+    public static function handle_resume_breaker(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_resume_breaker');
+        set_transient('wsn_cmd_resume_breaker', 1, DAY_IN_SECONDS);
+        self::redirect('wsn-status', 'בקשת חידוש שליחה נשלחה לגשר');
+    }
+
+    public static function handle_toggle_pause(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_toggle_pause');
+        WSN_Settings::update(['paused' => (int) !WSN_Settings::get('paused')]);
+        self::redirect('wsn-status', WSN_Settings::get('paused') ? 'השליחה הושהתה' : 'השליחה חודשה');
+    }
+
+    public static function handle_send_test(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_send_test');
+        $phone = WSN_Phone::to_e164(WSN_Settings::get('test_phone'));
+        if (!$phone) {
+            self::redirect('wsn-settings', 'הגדר מספר בדיקה תקין קודם', 'err');
+        }
+        $key = sanitize_key($_POST['tpl_key'] ?? '');
+        $tpl = WSN_Templates::get($key);
+        $body = $tpl
+            ? WSN_Templates::render(WSN_Templates::pick_variant($tpl), null,
+                ['first_name' => 'ישראל', 'order_number' => '1234', 'removed_item' => 'מוצר לדוגמה',
+                 'new_item' => 'מוצר חלופי', 'store_name' => get_bloginfo('name')])
+            : 'הודעת בדיקה מ-WA Store Notify ✔';
+        WSN_Outbox::enqueue([
+            'kind' => 'test', 'phone' => $phone, 'body' => $body,
+            'event_key' => 'test-' . time(),
+        ]);
+        self::redirect('wsn-templates', 'הודעת בדיקה נוספה לתור');
+    }
+
+    public static function handle_export_contacts(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_export_contacts');
+        global $wpdb;
+        $rows = $wpdb->get_results("SELECT phone_e164,first_name,last_name,status,marketing_consent,orders_count,total_spent,last_order_at FROM " . WSN_Contacts::table() . " ORDER BY id DESC", ARRAY_A);
+        nocache_headers();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=wsn-contacts-' . gmdate('Ymd') . '.csv');
+        echo "\xEF\xBB\xBF"; // BOM לאקסל עברית
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['טלפון', 'שם פרטי', 'שם משפחה', 'סטטוס', 'הסכמת דיוור', 'מספר הזמנות', 'סה"כ קניות', 'הזמנה אחרונה']);
+        foreach ((array) $rows as $r) {
+            fputcsv($out, $r);
+        }
+        fclose($out);
+        exit;
+    }
+
+    public static function handle_campaign_create(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_campaign_create');
+        $in = wp_unslash($_POST);
+        $title = sanitize_text_field($in['title'] ?? '');
+        $variants = array_values(array_filter(
+            array_map('sanitize_textarea_field', (array) ($in['variants'] ?? [])),
+            fn($v) => trim($v) !== ''
+        ));
+        $filter = [
+            'min_orders' => max(0, (int) ($in['min_orders'] ?? 0)),
+            'last_order_days' => max(0, (int) ($in['last_order_days'] ?? 0)),
+        ];
+        if ($title === '' || !$variants) {
+            self::redirect('wsn-campaigns', 'צריך כותרת ולפחות נוסח אחד', 'err');
+        }
+        WSN_Campaigns::create($title, $variants, $filter);
+        self::redirect('wsn-campaigns', 'הקמפיין נשמר כטיוטה');
+    }
+
+    public static function handle_campaign_action(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_campaign_action');
+        $id = (int) ($_POST['campaign_id'] ?? 0);
+        $act = sanitize_key($_POST['act'] ?? '');
+        if ($act === 'launch') {
+            $res = WSN_Campaigns::launch($id);
+            self::redirect('wsn-campaigns', $res['ok'] ? "שוגר — {$res['queued']} נמענים נכנסו לתור" : $res['error'], $res['ok'] ? 'ok' : 'err');
+        } elseif ($act === 'cancel') {
+            WSN_Campaigns::cancel($id);
+            self::redirect('wsn-campaigns', 'הקמפיין בוטל');
+        }
+        self::redirect('wsn-campaigns', 'פעולה לא מוכרת', 'err');
+    }
+
+    public static function ajax_audience_count(): void
+    {
+        check_ajax_referer('wsn_admin', 'nonce');
+        if (!current_user_can(self::CAP)) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $count = WSN_Contacts::audience([
+            'min_orders' => max(0, (int) ($_POST['min_orders'] ?? 0)),
+            'last_order_days' => max(0, (int) ($_POST['last_order_days'] ?? 0)),
+        ], true);
+        wp_send_json_success(['count' => $count, 'estimate' => WSN_Campaigns::estimate($count)]);
+    }
+}
+
+add_action('admin_notices', ['WSN_Admin', 'notice']);

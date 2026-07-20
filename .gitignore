@@ -1,0 +1,7 @@
+node_modules/
+bridge/session/
+bridge/data/
+bridge/.wwebjs_cache/
+bridge/.env
+*.log
+/wa-store-notify.zip

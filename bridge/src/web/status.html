@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WA Store Notify — גשר</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; background: #f6f7f8; color: #1f2a2e; margin: 0; }
+  header { background: #128C7E; color: #fff; padding: 14px 18px; font-size: 18px; font-weight: 600; }
+  main { max-width: 560px; margin: 0 auto; padding: 18px 14px; }
+  .card { background: #fff; border: 1px solid #e3e8ea; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .good { color: #007a3d; font-weight: 600; }
+  .bad { color: #b3261e; font-weight: 600; }
+  img#qr { width: 240px; max-width: 100%; display: block; margin: 12px auto; border: 1px solid #e3e8ea; border-radius: 10px; }
+  input, button { font: inherit; font-size: 16px; }
+  input { width: 100%; padding: 10px; border: 1px solid #e3e8ea; border-radius: 10px; box-sizing: border-box; }
+  button { background: #128C7E; color: #fff; border: none; border-radius: 10px; padding: 11px 18px; cursor: pointer; margin-top: 8px; }
+  button.ghost { background: none; color: #6b7a80; border: 1px solid #e3e8ea; }
+  .stats span { display: inline-block; margin-inline-end: 16px; }
+  #code { font-size: 30px; letter-spacing: 6px; text-align: center; color: #128C7E; font-weight: 700; direction: ltr; }
+  .msg { font-size: 14px; margin-top: 8px; min-height: 18px; }
+</style>
+</head>
+<body>
+<header>WA Store Notify — גשר וואטסאפ</header>
+<main>
+  <div class="card" id="conn"><p>טוען…</p></div>
+  <div class="card">
+    <b>סטטיסטיקות</b>
+    <p class="stats" id="stats">—</p>
+    <p id="flags"></p>
+  </div>
+</main>
+<script>
+let timer = null;
+function schedule(ms) { clearTimeout(timer); timer = setTimeout(refresh, ms); }
+
+async function refresh() {
+  let d;
+  try { d = await (await fetch('/api/status')).json(); }
+  catch { document.getElementById('conn').innerHTML = '<p class="bad">אין תקשורת עם הגשר</p>'; return schedule(4000); }
+
+  const conn = document.getElementById('conn');
+  if (d.state === 'ready') {
+    const me = d.me ? (d.me.name + ' (' + d.me.number + ')') : '';
+    conn.innerHTML = '<p class="good">✔ מחובר ' + me + '</p>' +
+      '<button class="ghost" onclick="logout()">נתק חשבון</button>';
+    schedule(15000);
+  } else if (d.state === 'qr' && d.qr) {
+    conn.innerHTML =
+      '<p>סרוק מהוואטסאפ של החנות (מכשירים מקושרים ▸ קישור מכשיר):</p>' +
+      '<img id="qr" src="' + d.qr + '">' +
+      '<p>או חבר עם קוד — הזן את מספר החנות:</p>' +
+      '<input id="num" placeholder="9725XXXXXXXX" dir="ltr">' +
+      '<button onclick="pair()">קבל קוד צימוד</button>' +
+      '<div id="code"></div><div class="msg" id="pmsg"></div>';
+    schedule(5000);
+  } else {
+    conn.innerHTML = '<p>מצב: ' + (d.state || 'לא ידוע') + '</p>';
+    schedule(3000);
+  }
+
+  const c = d.counters || {};
+  document.getElementById('stats').innerHTML =
+    '<span>היום: <b>' + (c.sent_today || 0) + '</b></span>' +
+    '<span>בשעה: <b>' + (c.sent_hour || 0) + '</b></span>' +
+    '<span>קמפיינים היום: <b>' + (c.campaign_today || 0) + '</b></span>';
+  const flags = [];
+  if (d.paused) flags.push('<span class="bad">מושהה</span>');
+  if (d.quiet) flags.push('שעות שקט');
+  if (d.breaker && d.breaker.open) flags.push('<span class="bad">מפסק זרם פתוח</span>');
+  if (d.warmup_day) flags.push('חימום יום ' + d.warmup_day);
+  document.getElementById('flags').innerHTML = flags.join(' · ');
+}
+
+async function pair() {
+  const num = document.getElementById('num').value;
+  const msg = document.getElementById('pmsg');
+  msg.textContent = 'מבקש קוד…';
+  clearTimeout(timer);
+  try {
+    const d = await (await fetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: num }) })).json();
+    if (!d.ok) throw new Error(d.error);
+    document.getElementById('code').textContent = d.code;
+    msg.textContent = 'הקלד את הקוד בוואטסאפ תוך דקה.';
+  } catch (e) { msg.textContent = e.message; }
+  schedule(5000);
+}
+
+async function logout() {
+  if (!confirm('לנתק את חשבון הוואטסאפ?')) return;
+  try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+  schedule(2000);
+}
+
+refresh();
+</script>
+</body>
+</html>
