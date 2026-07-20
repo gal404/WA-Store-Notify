@@ -86,6 +86,12 @@ module.exports = {
     } catch { /* חיווי הקלדה best-effort */ }
 
     const sent = await client.sendMessage(chatId, outgoing);
+    if (!sent) {
+      // whatsapp-web.js לפעמים מחזיר undefined בלי לזרוק (תקלה בצד WhatsApp Web) —
+      // בלי הבדיקה הזו הקוד למטה זורק TypeError גולמי ("Cannot read properties of
+      // undefined") שמבלבל ביומן; כך processOne מקבל שגיאה ברורה וממשיך backoff כרגיל.
+      throw new Error('sendMessage לא החזיר הודעה — יתכן כשל זמני בוואטסאפ Web');
+    }
 
     let edited = false;
     if (typo) {

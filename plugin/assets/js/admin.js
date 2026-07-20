@@ -15,6 +15,48 @@
         ta.focus();
     });
 
+    // "שלח לי לבדיקה" — נוסף לתור בעדיפות עליונה, ואז נבדק בזמן אמת עד שנשלח/נכשל
+    // (במקום "נוסף לתור" ואז לבדוק ביומן ידנית) — אימות מיידי שהכול עובד מקצה לקצה.
+    document.addEventListener('click', function (e) {
+        if (!e.target.classList.contains('wsn-send-test')) return;
+        var btn = e.target;
+        var status = btn.parentElement.querySelector('.wsn-test-status');
+        btn.disabled = true;
+        status.textContent = 'שולח…';
+        fetch(WSN.ajax, {
+            method: 'POST',
+            body: new URLSearchParams({ action: 'wsn_send_test', nonce: WSN.nonce, tpl_key: btn.dataset.tplKey })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) { status.textContent = 'שגיאה: ' + (d.data || ''); btn.disabled = false; return; }
+                pollTestStatus(d.data.id, btn, status, 0);
+            })
+            .catch(function (err) { status.textContent = 'שגיאה: ' + err.message; btn.disabled = false; });
+    });
+
+    function pollTestStatus(id, btn, status, elapsedMs) {
+        if (elapsedMs > 90000) { status.textContent = 'עדיין ממתין לגשר… בדוק ביומן ההודעות בעוד רגע.'; btn.disabled = false; return; }
+        fetch(WSN.ajax, {
+            method: 'POST',
+            body: new URLSearchParams({ action: 'wsn_test_status', nonce: WSN.nonce, id: id })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) { status.textContent = 'שגיאה בבדיקת סטטוס'; btn.disabled = false; return; }
+                var s = d.data.status;
+                if (s === 'sent') { status.textContent = '✔ נשלח בהצלחה'; btn.disabled = false; return; }
+                if (s === 'failed' || s === 'expired' || s === 'cancelled') {
+                    status.textContent = 'לא נשלח: ' + (d.data.last_error || s); btn.disabled = false; return;
+                }
+                status.textContent = s === 'claimed' ? 'הגשר שולח עכשיו…' : 'ממתין לגשר…';
+                setTimeout(function () { pollTestStatus(id, btn, status, elapsedMs + 2000); }, 2000);
+            })
+            .catch(function () {
+                setTimeout(function () { pollTestStatus(id, btn, status, elapsedMs + 2000); }, 2000);
+            });
+    }
+
     // חישוב קהל יעד להערכת קמפיין (חי)
     var countBtn = document.getElementById('wsn-count-btn');
     if (countBtn) {

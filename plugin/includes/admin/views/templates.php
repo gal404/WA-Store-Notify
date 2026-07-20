@@ -9,9 +9,7 @@ $special = [
 ];
 $post = admin_url('admin-post.php');
 
-$test_forms = [];
-
-$render_card = function (string $key, string $label, array $templates) use (&$test_forms) {
+$render_card = function (string $key, string $label, array $templates) {
     $tpl = $templates[$key] ?? ['enabled' => 0, 'variants' => []];
     $variants = $tpl['variants'] ?: [''];
     ?>
@@ -28,16 +26,12 @@ $render_card = function (string $key, string $label, array $templates) use (&$te
         </div>
         <p>
             <button type="button" class="button wsn-add-variant">+ נוסח נוסף</button>
-            <button type="submit" class="button" form="wsn-test-<?php echo esc_attr($key); ?>">שלח לי לבדיקה</button>
+            <button type="button" class="button wsn-send-test" data-tpl-key="<?php echo esc_attr($key); ?>">שלח לי לבדיקה</button>
+            <span class="wsn-test-status description"></span>
             <?php if (count($variants) < 2): ?><span class="description">מומלץ 2+ נוסחים — טקסטים זהים מעלים סיכון חסימה.</span><?php endif; ?>
         </p>
     </div>
     <?php
-    // טופס הבדיקה משויך לכפתור דרך form="..." (attribute) ולא קינון —
-    // <form> בתוך <form> אינו חוקי ב-HTML; קינון כאן סגר בפועל את הטופס הראשי
-    // מוקדם מדי, כך שכפתור "שמור תבניות" יצא מחוץ לכל טופס ולא הגיב בלחיצה כלל.
-    // הטפסים עצמם מרונדרים פעם אחת אחרי סגירת הטופס הראשי, ראו למטה.
-    $test_forms[] = $key;
 };
 ?>
 <div class="wrap wsn" dir="rtl">
@@ -45,6 +39,7 @@ $render_card = function (string $key, string $label, array $templates) use (&$te
     <p class="description">
         placeholders זמינים: <code dir="ltr">{first_name} {last_name} {order_number} {order_total} {items} {status_name} {tracking_number} {tracking_url} {store_name}</code>.
         שורה עם <code dir="ltr">{tracking_number}</code> ריק — נמחקת אוטומטית.
+        "שלח לי לבדיקה" מדלג בתור לפני הכול ומראה כאן בזמן אמת מתי היא נשלחה בפועל — דרך טובה לוודא שהכול עובד מקצה לקצה.
     </p>
 
     <form method="post" action="<?php echo esc_url($post); ?>">
@@ -63,12 +58,4 @@ $render_card = function (string $key, string $label, array $templates) use (&$te
 
         <?php submit_button('שמור תבניות'); ?>
     </form>
-
-    <?php foreach ($test_forms as $key): ?>
-        <form id="wsn-test-<?php echo esc_attr($key); ?>" method="post" action="<?php echo esc_url($post); ?>" style="display:none">
-            <?php wp_nonce_field('wsn_send_test'); ?>
-            <input type="hidden" name="action" value="wsn_send_test">
-            <input type="hidden" name="tpl_key" value="<?php echo esc_attr($key); ?>">
-        </form>
-    <?php endforeach; ?>
 </div>

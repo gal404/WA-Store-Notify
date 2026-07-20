@@ -17,9 +17,10 @@ class WSN_Admin
         add_action('admin_post_wsn_export_contacts', [__CLASS__, 'handle_export_contacts']);
         add_action('admin_post_wsn_campaign_create', [__CLASS__, 'handle_campaign_create']);
         add_action('admin_post_wsn_campaign_action', [__CLASS__, 'handle_campaign_action']);
-        add_action('admin_post_wsn_send_test', [__CLASS__, 'handle_send_test']);
         add_action('admin_post_wsn_cancel_messages', [__CLASS__, 'handle_cancel_messages']);
         add_action('wp_ajax_wsn_audience_count', [__CLASS__, 'ajax_audience_count']);
+        add_action('wp_ajax_wsn_send_test', [__CLASS__, 'ajax_send_test']);
+        add_action('wp_ajax_wsn_test_status', [__CLASS__, 'ajax_test_status']);
     }
 
     public static function menu(): void
@@ -160,13 +161,18 @@ class WSN_Admin
         self::redirect('wsn-status', WSN_Settings::get('paused') ? 'השליחה הושהתה' : 'השליחה חודשה');
     }
 
-    public static function handle_send_test(): void
+    // עדיפות -10 (< 0 הרגיל) כדי שהגשר יתפוס את הודעת הבדיקה ראשונה מתוך התור,
+    // ו-ajax_test_status מאפשר לעמוד להראות בזמן אמת מתי היא באמת נשלחה — כדי
+    // ש"שלח לי לבדיקה" יהיה אימות מיידי לכל הצינור, לא רק "נוסף לתור" ותקווה.
+    public static function ajax_send_test(): void
     {
-        self::guard();
-        check_admin_referer('wsn_send_test');
+        check_ajax_referer('wsn_admin', 'nonce');
+        if (!current_user_can(self::CAP)) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
         $phone = WSN_Phone::to_e164(WSN_Settings::get('test_phone'));
         if (!$phone) {
-            self::redirect('wsn-settings', 'הגדר מספר בדיקה תקין קודם', 'err');
+            wp_send_json_error('הגדר מספר בדיקה תקין בהגדרות קודם');
         }
         $key = sanitize_key($_POST['tpl_key'] ?? '');
         $tpl = WSN_Templates::get($key);
@@ -175,11 +181,31 @@ class WSN_Admin
                 ['first_name' => 'ישראל', 'order_number' => '1234', 'removed_item' => 'מוצר לדוגמה',
                  'new_item' => 'מוצר חלופי', 'store_name' => get_bloginfo('name')])
             : 'הודעת בדיקה מ-WA Store Notify ✔';
-        WSN_Outbox::enqueue([
-            'kind' => 'test', 'phone' => $phone, 'body' => $body,
-            'event_key' => 'test-' . time(),
+        $id = WSN_Outbox::enqueue([
+            'kind' => 'test', 'priority' => -10, 'phone' => $phone, 'body' => $body,
+            'event_key' => 'test-' . time() . '-' . wp_rand(1000, 9999),
         ]);
-        self::redirect('wsn-templates', 'הודעת בדיקה נוספה לתור');
+        if (!$id) {
+            wp_send_json_error('לא ניתן היה להוסיף לתור');
+        }
+        wp_send_json_success(['id' => $id]);
+    }
+
+    public static function ajax_test_status(): void
+    {
+        check_ajax_referer('wsn_admin', 'nonce');
+        if (!current_user_can(self::CAP)) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $id = (int) ($_POST['id'] ?? 0);
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT status, last_error FROM " . WSN_Outbox::table() . " WHERE id=%d", $id
+        ), ARRAY_A);
+        if (!$row) {
+            wp_send_json_error('לא נמצא');
+        }
+        wp_send_json_success($row);
     }
 
     public static function handle_cancel_messages(): void
