@@ -109,6 +109,9 @@ class WSN_Admin
         $changes['test_phone'] = sanitize_text_field($in['test_phone'] ?? '');
         $changes['alert_email'] = sanitize_email($in['alert_email'] ?? '');
         $changes['delete_data_on_uninstall'] = (int) !empty($in['delete_data_on_uninstall']);
+        // שדה סוד — שדה ריק בשמירה = משאיר את הטוקן הקיים (לא מוחק בטעות)
+        $gh_token = sanitize_text_field($in['github_token'] ?? '');
+        $changes['github_token'] = $gh_token !== '' ? $gh_token : WSN_Settings::get('github_token');
         WSN_Settings::update($changes);
         self::redirect('wsn-settings', 'ההגדרות נשמרו');
     }

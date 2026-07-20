@@ -98,6 +98,11 @@ $post = admin_url('admin-post.php');
                     מחק את כל הנתונים (מועדון, יומן) בעת הסרת התוסף</label>
                 <p class="description">כבוי כברירת מחדל — המועדון הוא נכס עסקי.</p>
             </td></tr>
+            <tr><th>עדכון תוסף אוטומטי</th><td>
+                <input type="password" name="github_token" value="" autocomplete="off" style="width:420px" dir="ltr" placeholder="<?php echo $s['github_token'] ? '•••••••• (מוגדר — השאר ריק כדי לא לשנות)' : 'ghp_... או github_pat_...'; ?>">
+                <p class="description">GitHub token עם גישה ל-repo הפרטי wa-store-notify. משמש לבדיקת עדכונים והורדתם דרך עמוד התוספים הרגיל של WP.
+                    סטטוס: <?php echo $s['github_token'] ? '<span class="wsn-good">מוגדר ✔</span>' : '<span class="wsn-bad">לא מוגדר</span>'; ?></p>
+            </td></tr>
         </tbody></table>
 
         <?php submit_button('שמור הגדרות'); ?>

@@ -38,6 +38,8 @@ class WSN_Settings
             'test_phone'               => '',
             'alert_email'              => get_option('admin_email'),
             'delete_data_on_uninstall' => 0,
+            // עדכון תוסף אוטומטי (GitHub פרטי דרך Plugin Update Checker)
+            'github_token'             => '',
         ];
     }
 
