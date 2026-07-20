@@ -18,6 +18,7 @@ class WSN_Admin
         add_action('admin_post_wsn_campaign_create', [__CLASS__, 'handle_campaign_create']);
         add_action('admin_post_wsn_campaign_action', [__CLASS__, 'handle_campaign_action']);
         add_action('admin_post_wsn_cancel_messages', [__CLASS__, 'handle_cancel_messages']);
+        add_action('admin_post_wsn_send_now_messages', [__CLASS__, 'handle_send_now_messages']);
         add_action('wp_ajax_wsn_audience_count', [__CLASS__, 'ajax_audience_count']);
         add_action('wp_ajax_wsn_send_test', [__CLASS__, 'ajax_send_test']);
         add_action('wp_ajax_wsn_test_status', [__CLASS__, 'ajax_test_status']);
@@ -211,12 +212,26 @@ class WSN_Admin
     public static function handle_cancel_messages(): void
     {
         self::guard();
-        check_admin_referer('wsn_cancel_messages');
+        check_admin_referer('wsn_bulk_message_action');
         $ids = array_map('intval', (array) ($_POST['msg_ids'] ?? []));
         $n = WSN_Outbox::cancel_by_ids($ids);
         $back = wp_get_referer() ?: admin_url('admin.php?page=wsn-log');
         wp_safe_redirect(add_query_arg(
             ['wsn_msg' => rawurlencode($n > 0 ? "בוטלו $n הודעות" : 'לא נבחרו הודעות שניתן לבטל'), 'wsn_type' => $n > 0 ? 'ok' : 'err'],
+            $back
+        ));
+        exit;
+    }
+
+    public static function handle_send_now_messages(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_bulk_message_action');
+        $ids = array_map('intval', (array) ($_POST['msg_ids'] ?? []));
+        $n = WSN_Outbox::send_now_by_ids($ids);
+        $back = wp_get_referer() ?: admin_url('admin.php?page=wsn-log');
+        wp_safe_redirect(add_query_arg(
+            ['wsn_msg' => rawurlencode($n > 0 ? "$n הודעות יישלחו בסבב הבא של הגשר" : 'לא נבחרו הודעות ממתינות'), 'wsn_type' => $n > 0 ? 'ok' : 'err'],
             $back
         ));
         exit;

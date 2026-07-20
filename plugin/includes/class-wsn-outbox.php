@@ -182,6 +182,33 @@ class WSN_Outbox
         ));
     }
 
+    /** מכריח שליחה מיידית: מאפס תזמון ומעלה עדיפות, כדי שהגשר יתפוס בסבב הבא — עוקף המתנת backoff */
+    public static function send_now_by_ids(array $ids): int
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return 0;
+        }
+        global $wpdb;
+        $ph = implode(',', array_fill(0, count($ids), '%d'));
+        return (int) $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::table() . " SET scheduled_at=%s, priority=-10
+             WHERE status='queued' AND id IN ($ph)",
+            array_merge([current_time('mysql')], $ids)
+        ));
+    }
+
+    /** מסנכרן מספר טלפון בהודעות שעדיין בתור — למשל אחרי תיקון טעות הקלדה בהזמנה */
+    public static function update_phone_for_order(int $order_id, string $phone_e164): int
+    {
+        global $wpdb;
+        return (int) $wpdb->update(
+            self::table(),
+            ['phone_e164' => $phone_e164],
+            ['order_id' => $order_id, 'status' => 'queued']
+        );
+    }
+
     /** ביטול כל ההודעות הממתינות למספר (אחרי "הסר") */
     public static function cancel_for_phone(string $phone_e164): int
     {

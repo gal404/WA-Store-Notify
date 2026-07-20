@@ -46,13 +46,15 @@ $cancellable = ['queued', 'claimed'];
         <span class="description">סה"כ <?php echo (int) $total; ?> רשומות</span>
     </form>
 
-    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
-          onsubmit="return confirm('לבטל את ההודעות המסומנות? הן לא יישלחו.');">
-        <?php wp_nonce_field('wsn_cancel_messages'); ?>
-        <input type="hidden" name="action" value="wsn_cancel_messages">
+    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+        <?php wp_nonce_field('wsn_bulk_message_action'); ?>
 
         <div class="tablenav top">
-            <button type="submit" class="button">בטל את המסומנות</button>
+            <button type="submit" name="action" value="wsn_send_now_messages" class="button button-primary"
+                    onclick="return confirm('לשלוח את ההודעות המסומנות עכשיו, בלי להמתין לתזמון הרגיל?');">שלח עכשיו</button>
+            <button type="submit" name="action" value="wsn_cancel_messages" class="button"
+                    onclick="return confirm('לבטל את ההודעות המסומנות? הן לא יישלחו.');">בטל את המסומנות</button>
+            <span class="description">"שלח עכשיו" פועל רק על הודעות "ממתין" — מדלג בתור כדי שהגשר יתפוס בסבב הבא שלו.</span>
         </div>
 
         <table class="wp-list-table widefat fixed striped">

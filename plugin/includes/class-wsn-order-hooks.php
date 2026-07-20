@@ -8,6 +8,7 @@ class WSN_Order_Hooks
         add_action('woocommerce_order_status_changed', [__CLASS__, 'on_status_changed'], 20, 4);
         add_action('woocommerce_checkout_create_order', [__CLASS__, 'on_checkout_create_order'], 10, 2);
         add_filter('woocommerce_checkout_fields', [__CLASS__, 'add_optin_field']);
+        add_action('woocommerce_after_order_object_save', [__CLASS__, 'on_order_saved']);
     }
 
     public static function on_status_changed(int $order_id, string $old, string $new, $order): void
@@ -45,6 +46,20 @@ class WSN_Order_Hooks
         if ($id) {
             $order->add_order_note('וואטסאפ: נוספה לתור הודעת סטטוס "' . wc_get_order_status_name($new) . '"');
         }
+    }
+
+    // תיקון מספר טלפון בהזמנה (למשל טעות הקלדה) אחרי שהודעה כבר נכנסה לתור —
+    // בלי זה, הודעה שממתינה ל-retry ממשיכה לנסות את המספר הישן שנשמר בעת ההוספה לתור
+    public static function on_order_saved($order): void
+    {
+        if (!$order instanceof WC_Order) {
+            return;
+        }
+        $phone = WSN_Phone::to_e164($order->get_billing_phone());
+        if (!$phone) {
+            return;
+        }
+        WSN_Outbox::update_phone_for_order($order->get_id(), $phone);
     }
 
     public static function on_checkout_create_order($order, $data): void
