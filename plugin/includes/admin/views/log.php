@@ -29,6 +29,7 @@ $rows = $wpdb->get_results($wpdb->prepare($rows_sql, array_merge($params, [$per,
 
 $labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נשלח',
     'failed' => 'נכשל', 'cancelled' => 'בוטל', 'expired' => 'פג'];
+$cancellable = ['queued', 'claimed'];
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>יומן הודעות</h1>
@@ -45,39 +46,44 @@ $labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נ�
         <span class="description">סה"כ <?php echo (int) $total; ?> רשומות</span>
     </form>
 
-    <table class="wp-list-table widefat fixed striped">
-        <thead><tr>
-            <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
-        </tr></thead>
-        <tbody>
-        <?php if (!$rows): ?>
-            <tr><td colspan="7">אין רשומות.</td></tr>
-        <?php else: foreach ($rows as $r): ?>
-            <tr>
-                <td><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>
-                <td dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
-                <td><?php echo esc_html($r['kind']); ?></td>
-                <td><?php echo esc_html(mb_strimwidth($r['body'], 0, 60, '…')); ?></td>
-                <td>
-                    <?php echo esc_html($labels[$r['status']] ?? $r['status']); ?>
-                    <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
-                </td>
-                <td><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
-                <td>
-                    <?php if (in_array($r['status'], ['queued', 'claimed'], true)): ?>
-                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline"
-                              onsubmit="return confirm('לבטל את ההודעה הזו? היא לא תישלח.');">
-                            <?php wp_nonce_field('wsn_cancel_message'); ?>
-                            <input type="hidden" name="action" value="wsn_cancel_message">
-                            <input type="hidden" name="msg_id" value="<?php echo (int) $r['id']; ?>">
-                            <button class="button">בטל</button>
-                        </form>
-                    <?php else: ?>—<?php endif; ?>
-                </td>
-            </tr>
-        <?php endforeach; endif; ?>
-        </tbody>
-    </table>
+    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
+          onsubmit="return confirm('לבטל את ההודעות המסומנות? הן לא יישלחו.');">
+        <?php wp_nonce_field('wsn_cancel_messages'); ?>
+        <input type="hidden" name="action" value="wsn_cancel_messages">
+
+        <div class="tablenav top">
+            <button type="submit" class="button">בטל את המסומנות</button>
+        </div>
+
+        <table class="wp-list-table widefat fixed striped">
+            <thead><tr>
+                <td class="check-column"><input type="checkbox" onclick="document.querySelectorAll('.wsn-msg-check').forEach(c => c.checked = this.checked)"></td>
+                <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th>
+            </tr></thead>
+            <tbody>
+            <?php if (!$rows): ?>
+                <tr><td colspan="7">אין רשומות.</td></tr>
+            <?php else: foreach ($rows as $r): ?>
+                <tr>
+                    <td class="check-column">
+                        <?php if (in_array($r['status'], $cancellable, true)): ?>
+                            <input type="checkbox" class="wsn-msg-check" name="msg_ids[]" value="<?php echo (int) $r['id']; ?>">
+                        <?php endif; ?>
+                    </td>
+                    <td><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>
+                    <td dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
+                    <td><?php echo esc_html($r['kind']); ?></td>
+                    <td><?php echo esc_html(mb_strimwidth($r['body'], 0, 60, '…')); ?></td>
+                    <td>
+                        <?php echo esc_html($labels[$r['status']] ?? $r['status']); ?>
+                        <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
+                    </td>
+                    <td><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
+                </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </form>
 
     <?php
     $pages = (int) ceil($total / $per);

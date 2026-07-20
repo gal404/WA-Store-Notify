@@ -167,15 +167,19 @@ class WSN_Outbox
         return true;
     }
 
-    /** ביטול הודעה בודדת (פעולת מנהל מיומן ההודעות) — רק אם עוד לא נשלחה */
-    public static function cancel_by_id(int $id): bool
+    /** ביטול הודעות נבחרות (פעולת מנהל מיומן ההודעות, בודדת או קבוצתית) — רק אם עוד לא נשלחו */
+    public static function cancel_by_ids(array $ids): int
     {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return 0;
+        }
         global $wpdb;
-        $n = $wpdb->query($wpdb->prepare(
+        $ph = implode(',', array_fill(0, count($ids), '%d'));
+        return (int) $wpdb->query($wpdb->prepare(
             "UPDATE " . self::table() . " SET status='cancelled', last_error='בוטל ידנית', claim_token=NULL, claim_expires_at=NULL
-             WHERE id=%d AND status IN ('queued','claimed')", $id
+             WHERE status IN ('queued','claimed') AND id IN ($ph)", $ids
         ));
-        return (bool) $n;
     }
 
     /** ביטול כל ההודעות הממתינות למספר (אחרי "הסר") */
