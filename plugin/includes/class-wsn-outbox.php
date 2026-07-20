@@ -167,6 +167,17 @@ class WSN_Outbox
         return true;
     }
 
+    /** ביטול הודעה בודדת (פעולת מנהל מיומן ההודעות) — רק אם עוד לא נשלחה */
+    public static function cancel_by_id(int $id): bool
+    {
+        global $wpdb;
+        $n = $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::table() . " SET status='cancelled', last_error='בוטל ידנית', claim_token=NULL, claim_expires_at=NULL
+             WHERE id=%d AND status IN ('queued','claimed')", $id
+        ));
+        return (bool) $n;
+    }
+
     /** ביטול כל ההודעות הממתינות למספר (אחרי "הסר") */
     public static function cancel_for_phone(string $phone_e164): int
     {

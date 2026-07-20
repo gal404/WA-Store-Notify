@@ -9,7 +9,9 @@ $special = [
 ];
 $post = admin_url('admin-post.php');
 
-$render_card = function (string $key, string $label, array $templates) {
+$test_forms = [];
+
+$render_card = function (string $key, string $label, array $templates) use (&$test_forms) {
     $tpl = $templates[$key] ?? ['enabled' => 0, 'variants' => []];
     $variants = $tpl['variants'] ?: [''];
     ?>
@@ -30,12 +32,12 @@ $render_card = function (string $key, string $label, array $templates) {
             <?php if (count($variants) < 2): ?><span class="description">מומלץ 2+ נוסחים — טקסטים זהים מעלים סיכון חסימה.</span><?php endif; ?>
         </p>
     </div>
-    <form id="wsn-test-<?php echo esc_attr($key); ?>" method="post" action="<?php echo esc_url($post); ?>" style="display:none">
-        <?php wp_nonce_field('wsn_send_test'); ?>
-        <input type="hidden" name="action" value="wsn_send_test">
-        <input type="hidden" name="tpl_key" value="<?php echo esc_attr($key); ?>">
-    </form>
     <?php
+    // טופס הבדיקה משויך לכפתור דרך form="..." (attribute) ולא קינון —
+    // <form> בתוך <form> אינו חוקי ב-HTML; קינון כאן סגר בפועל את הטופס הראשי
+    // מוקדם מדי, כך שכפתור "שמור תבניות" יצא מחוץ לכל טופס ולא הגיב בלחיצה כלל.
+    // הטפסים עצמם מרונדרים פעם אחת אחרי סגירת הטופס הראשי, ראו למטה.
+    $test_forms[] = $key;
 };
 ?>
 <div class="wrap wsn" dir="rtl">
@@ -61,4 +63,12 @@ $render_card = function (string $key, string $label, array $templates) {
 
         <?php submit_button('שמור תבניות'); ?>
     </form>
+
+    <?php foreach ($test_forms as $key): ?>
+        <form id="wsn-test-<?php echo esc_attr($key); ?>" method="post" action="<?php echo esc_url($post); ?>" style="display:none">
+            <?php wp_nonce_field('wsn_send_test'); ?>
+            <input type="hidden" name="action" value="wsn_send_test">
+            <input type="hidden" name="tpl_key" value="<?php echo esc_attr($key); ?>">
+        </form>
+    <?php endforeach; ?>
 </div>

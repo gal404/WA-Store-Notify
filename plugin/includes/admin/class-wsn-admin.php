@@ -18,6 +18,7 @@ class WSN_Admin
         add_action('admin_post_wsn_campaign_create', [__CLASS__, 'handle_campaign_create']);
         add_action('admin_post_wsn_campaign_action', [__CLASS__, 'handle_campaign_action']);
         add_action('admin_post_wsn_send_test', [__CLASS__, 'handle_send_test']);
+        add_action('admin_post_wsn_cancel_message', [__CLASS__, 'handle_cancel_message']);
         add_action('wp_ajax_wsn_audience_count', [__CLASS__, 'ajax_audience_count']);
     }
 
@@ -179,6 +180,20 @@ class WSN_Admin
             'event_key' => 'test-' . time(),
         ]);
         self::redirect('wsn-templates', 'הודעת בדיקה נוספה לתור');
+    }
+
+    public static function handle_cancel_message(): void
+    {
+        self::guard();
+        check_admin_referer('wsn_cancel_message');
+        $id = (int) ($_POST['msg_id'] ?? 0);
+        $ok = $id > 0 && WSN_Outbox::cancel_by_id($id);
+        $back = wp_get_referer() ?: admin_url('admin.php?page=wsn-log');
+        wp_safe_redirect(add_query_arg(
+            ['wsn_msg' => rawurlencode($ok ? 'ההודעה בוטלה — לא תישלח' : 'לא ניתן לבטל (כבר נשלחה או בוטלה כבר)'), 'wsn_type' => $ok ? 'ok' : 'err'],
+            $back
+        ));
+        exit;
     }
 
     public static function handle_export_contacts(): void

@@ -47,11 +47,11 @@ $labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נ�
 
     <table class="wp-list-table widefat fixed striped">
         <thead><tr>
-            <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th>
+            <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
         </tr></thead>
         <tbody>
         <?php if (!$rows): ?>
-            <tr><td colspan="6">אין רשומות.</td></tr>
+            <tr><td colspan="7">אין רשומות.</td></tr>
         <?php else: foreach ($rows as $r): ?>
             <tr>
                 <td><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>
@@ -63,6 +63,17 @@ $labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נ�
                     <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
                 </td>
                 <td><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
+                <td>
+                    <?php if (in_array($r['status'], ['queued', 'claimed'], true)): ?>
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline"
+                              onsubmit="return confirm('לבטל את ההודעה הזו? היא לא תישלח.');">
+                            <?php wp_nonce_field('wsn_cancel_message'); ?>
+                            <input type="hidden" name="action" value="wsn_cancel_message">
+                            <input type="hidden" name="msg_id" value="<?php echo (int) $r['id']; ?>">
+                            <button class="button">בטל</button>
+                        </form>
+                    <?php else: ?>—<?php endif; ?>
+                </td>
             </tr>
         <?php endforeach; endif; ?>
         </tbody>
