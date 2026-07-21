@@ -6,6 +6,7 @@ $status_labels = ['draft' => 'טיוטה', 'scheduled' => 'מתוזמן', 'sendi
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>קמפיינים (דיוור)</h1>
+    <?php WSN_Admin::nav('wsn-campaigns'); ?>
     <div class="notice notice-warning inline"><p>
         דיוור יזום הוא הפעילות עם סיכון החסימה הגבוה ביותר. נשלח רק ללקוחות שנתנו הסכמת דיוור,
         בקצב איטי, בחלון הצהריים בלבד. שקול היטב תדירות ותוכן.

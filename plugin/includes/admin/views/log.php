@@ -30,9 +30,27 @@ $rows = $wpdb->get_results($wpdb->prepare($rows_sql, array_merge($params, [$per,
 $labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נשלח',
     'failed' => 'נכשל', 'cancelled' => 'בוטל', 'expired' => 'פג'];
 $cancellable = ['queued', 'claimed'];
+
+// שליפת ההזמנות של העמוד במכה אחת (ולא wc_get_order בכל שורה — 50 טעינות לעמוד)
+$order_ids = array_values(array_unique(array_filter(array_map(
+    static fn($r) => (int) $r['order_id'],
+    (array) $rows
+))));
+$orders = [];
+if ($order_ids && function_exists('wc_get_orders')) {
+    foreach (wc_get_orders(['include' => $order_ids, 'limit' => -1]) as $o) {
+        $orders[$o->get_id()] = [
+            'number' => $o->get_order_number(),
+            'name'   => trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name()),
+            'status' => $o->get_status(),
+            'label'  => wc_get_order_status_name($o->get_status()),
+        ];
+    }
+}
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>יומן הודעות</h1>
+    <?php WSN_Admin::nav('wsn-log'); ?>
     <form method="get" class="wsn-filters">
         <input type="hidden" name="page" value="wsn-log">
         <select name="fstatus">
@@ -62,7 +80,7 @@ $cancellable = ['queued', 'claimed'];
         <table class="wp-list-table widefat striped">
             <thead><tr>
                 <td class="check-column"><input type="checkbox" onclick="document.querySelectorAll('.wsn-msg-check').forEach(c => c.checked = this.checked)"></td>
-                <th class="column-primary">טלפון</th><th>מתי</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
+                <th class="column-primary">הזמנה ולקוח</th><th>מתי</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
             </tr></thead>
             <tbody>
             <?php if (!$rows): ?>
@@ -78,8 +96,20 @@ $cancellable = ['queued', 'claimed'];
                             <input type="checkbox" class="wsn-msg-check" name="msg_ids[]" value="<?php echo (int) $r['id']; ?>">
                         <?php endif; ?>
                     </th>
-                    <td class="column-primary" data-colname="טלפון">
-                        <span dir="ltr"><?php echo esc_html($r['phone_e164']); ?></span>
+                    <?php $o = $orders[(int) $r['order_id']] ?? null; ?>
+                    <td class="column-primary" data-colname="הזמנה ולקוח">
+                        <?php if ($o): ?>
+                            <a class="wsn-order-link" href="<?php echo esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')); ?>">#<?php echo esc_html($o['number']); ?></a>
+                            <?php if ($o['name'] !== ''): ?>
+                                <span class="wsn-cust"><?php echo esc_html($o['name']); ?></span>
+                            <?php endif; ?>
+                            <span class="wsn-pill wsn-pill-order"><?php echo esc_html($o['label']); ?></span>
+                        <?php elseif ($r['order_id']): ?>
+                            <span class="wsn-cust">#<?php echo (int) $r['order_id']; ?> (ההזמנה נמחקה)</span>
+                        <?php else: ?>
+                            <span class="wsn-cust"><?php echo esc_html($r['kind'] === 'test' ? 'הודעת בדיקה' : 'ללא הזמנה'); ?></span>
+                        <?php endif; ?>
+                        <span class="wsn-phone" dir="ltr">(<?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?>)</span>
                         <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
                     </td>
                     <td data-colname="מתי"><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>

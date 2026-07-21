@@ -28,6 +28,22 @@ $rows = $wpdb->get_results($wpdb->prepare(
 ), ARRAY_A);
 
 $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid' => 'לא תקין'];
+
+// ההזמנות האחרונות של העמוד במכה אחת, כדי להציג מספר+סטטוס ולא רק תאריך
+$last_order_ids = array_values(array_unique(array_filter(array_map(
+    static fn($r) => (int) $r['last_order_id'],
+    (array) $rows
+))));
+$last_orders = [];
+if ($last_order_ids && function_exists('wc_get_orders')) {
+    foreach (wc_get_orders(['include' => $last_order_ids, 'limit' => -1]) as $o) {
+        $last_orders[$o->get_id()] = [
+            'number' => $o->get_order_number(),
+            'status' => $o->get_status(),
+            'label'  => wc_get_order_status_name($o->get_status()),
+        ];
+    }
+}
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>מועדון לקוחות
@@ -37,6 +53,7 @@ $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid
             <button class="page-title-action">ייצוא CSV</button>
         </form>
     </h1>
+    <?php WSN_Admin::nav('wsn-contacts'); ?>
 
     <form method="get" class="wsn-filters">
         <input type="hidden" name="page" value="wsn-contacts">
@@ -64,13 +81,25 @@ $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid
                     <?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name']) ?: '—'); ?>
                     <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
                 </td>
-                <td data-colname="טלפון" dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
+                <?php // dir="ltr" על ה-span הפנימי ולא על התא: על התא הוא היה מיישר
+                      // את כל התוכן שמאלה, ובתצוגה המוערמת במובייל המספר היה קופץ
+                      // לצד שמאל במקום לשבת ליד התווית שלו. ?>
+                <td data-colname="טלפון"><span class="wsn-phone" dir="ltr"><?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?></span></td>
                 <td data-colname="סטטוס"><span class="wsn-pill wsn-pill-<?php echo esc_attr($r['status']); ?>"><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></span></td>
                 <td data-colname="דיוור"><?php echo $r['marketing_consent'] ? '<span class="wsn-yes">✔</span>' : '<span class="wsn-no">—</span>'; ?></td>
                 <td data-colname="הזמנות" class="wsn-num"><?php echo (int) $r['orders_count']; ?></td>
                 <?php // wc_price מחזיר HTML (span/bdi + סמל מטבע) — esc_html היה מדפיס את התגיות כטקסט ?>
                 <td data-colname="סה&quot;כ קניות" class="wsn-num"><?php echo wp_kses_post(wc_price($r['total_spent'])); ?></td>
-                <td data-colname="הזמנה אחרונה"><?php echo $r['last_order_at'] ? esc_html(mysql2date('d/m/y', $r['last_order_at'])) : '—'; ?></td>
+                <td data-colname="הזמנה אחרונה">
+                    <?php $lo = $last_orders[(int) $r['last_order_id']] ?? null; ?>
+                    <?php if ($lo): ?>
+                        <a class="wsn-order-link" href="<?php echo esc_url(admin_url('post.php?post=' . (int) $r['last_order_id'] . '&action=edit')); ?>">#<?php echo esc_html($lo['number']); ?></a>
+                        <span class="wsn-pill wsn-pill-order"><?php echo esc_html($lo['label']); ?></span>
+                        <?php if ($r['last_order_at']): ?><span class="wsn-when"><?php echo esc_html(mysql2date('d/m/y', $r['last_order_at'])); ?></span><?php endif; ?>
+                    <?php elseif ($r['last_order_at']): ?>
+                        <span class="wsn-when"><?php echo esc_html(mysql2date('d/m/y', $r['last_order_at'])); ?></span>
+                    <?php else: ?>—<?php endif; ?>
+                </td>
             </tr>
         <?php endforeach; endif; ?>
         </tbody>

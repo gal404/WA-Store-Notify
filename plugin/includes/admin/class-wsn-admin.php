@@ -76,6 +76,29 @@ class WSN_Admin
             esc_attr($type), esc_html(rawurldecode(sanitize_text_field($_GET['wsn_msg']))));
     }
 
+    /** ניווט בין מסכי התוסף — כדי לא לפתוח את תפריט וורדפרס בכל מעבר */
+    public static function nav(string $current): void
+    {
+        $tabs = [
+            'wsn-status'    => 'סטטוס',
+            'wsn-settings'  => 'הגדרות',
+            'wsn-templates' => 'תבניות',
+            'wsn-log'       => 'יומן',
+            'wsn-contacts'  => 'מועדון',
+            'wsn-campaigns' => 'קמפיינים',
+        ];
+        echo '<nav class="wsn-nav nav-tab-wrapper">';
+        foreach ($tabs as $slug => $label) {
+            printf(
+                '<a href="%s" class="nav-tab%s">%s</a>',
+                esc_url(admin_url('admin.php?page=' . $slug)),
+                $slug === $current ? ' nav-tab-active' : '',
+                esc_html($label)
+            );
+        }
+        echo '</nav>';
+    }
+
     private static function view(string $name, array $vars = []): void
     {
         extract($vars, EXTR_SKIP);

@@ -36,6 +36,7 @@ $render_card = function (string $key, string $label, array $templates) {
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>תבניות הודעה</h1>
+    <?php WSN_Admin::nav('wsn-templates'); ?>
     <p class="description">
         placeholders זמינים: <code dir="ltr">{first_name} {last_name} {order_number} {order_total} {items} {status_name} {tracking_number} {tracking_url} {store_name}</code>.
         שורה עם <code dir="ltr">{tracking_number}</code> ריק — נמחקת אוטומטית.

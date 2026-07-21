@@ -46,4 +46,29 @@ class WSN_Phone
         }
         return null;
     }
+
+    /**
+     * תצוגה מקומית קריאה: 972501234567 → 050-1234567, 97221234567 → 02-1234567.
+     * מספר שאינו ישראלי מוצג כמו שהוא עם + מקדים. תצוגה בלבד — הערך שנשמר
+     * ונשלח לוואטסאפ נשאר תמיד E.164.
+     */
+    public static function to_display(?string $e164): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $e164);
+        if ($digits === '') {
+            return '';
+        }
+        if (strpos($digits, '972') === 0) {
+            $local = '0' . substr($digits, 3);
+            // נייד: 05X-XXXXXXX (10 ספרות) | קווי: 0X-XXXXXXX (9 ספרות)
+            if (preg_match('/^(05\d)(\d{7})$/', $local, $m)) {
+                return $m[1] . '-' . $m[2];
+            }
+            if (preg_match('/^(0\d)(\d{7})$/', $local, $m)) {
+                return $m[1] . '-' . $m[2];
+            }
+            return $local;
+        }
+        return '+' . $digits;
+    }
 }

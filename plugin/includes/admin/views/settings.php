@@ -6,6 +6,7 @@ $post = admin_url('admin-post.php');
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>הגדרות</h1>
+    <?php WSN_Admin::nav('wsn-settings'); ?>
 
     <form method="post" action="<?php echo esc_url($post); ?>">
         <?php wp_nonce_field('wsn_save_settings'); ?>

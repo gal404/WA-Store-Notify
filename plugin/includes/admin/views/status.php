@@ -10,6 +10,7 @@ $breaker_open = !empty($st['breaker']['open']);
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>וואטסאפ לחנות — סטטוס</h1>
+    <?php WSN_Admin::nav('wsn-status'); ?>
 
     <?php if ($breaker_open): ?>
         <div class="notice notice-error"><p>
