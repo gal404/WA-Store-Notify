@@ -55,6 +55,19 @@ function start(sender) {
     }
   });
 
+  // אבחון: ההודעה האחרונה בצ'אט — לבדוק אם הודעה שדווחה כ'נכשלה' בעצם נמסרה
+  app.get('/api/recent-messages', async (req, res) => {
+    const phone = String(req.query.phone || '').replace(/\D/g, '');
+    if (!phone) return res.status(400).json({ ok: false, error: 'חסר מספר' });
+    const lastMessage = await sender.getLastMessage(phone);
+    res.json({ ok: true, lastMessage });
+  });
+
+  // אבחון זמני: עד כמה הבעיה רחבה — getChats() כללי מול getChatById ספציפי
+  app.get('/api/debug-scope', async (_req, res) => {
+    res.json(await sender.debugScope());
+  });
+
   app.post('/api/pair', async (req, res) => {
     const number = String((req.body && req.body.number) || '').replace(/\D/g, '');
     if (!number) return res.status(400).json({ ok: false, error: 'מספר לא תקין' });

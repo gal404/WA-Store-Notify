@@ -45,6 +45,23 @@ client.on('message', async (msg) => {
   }
 });
 
+// בודק אם הודעה שלנו עם טקסט זהה נחתה בצ'אט לאחרונה — משמש כשsendMessage מחזיר
+// falsy בלי לזרוק, כדי להבדיל בין "לא נשלחה באמת" לבין "נשלחה, ההחזרה רק נכשלה"
+// (תקלה ידועה ב-whatsapp-web.js). קריטי: בלי זה עלולים לדווח 'נכשל' על הודעה
+// שבאמת נמסרה, מה שגורם ל-retry מיותר ולשליחה כפולה בפועל ללקוח.
+// משתמש ב-chat.lastMessage (מגיע עם נתוני הצ'אט עצמו) ולא ב-fetchMessages —
+// fetchMessages נשען על window.Store.Msg.getMessagesById הפנימי של WhatsApp Web,
+// שנמצא במצב שבור אצלנו כרגע (מחזיר שגיאה מכווצת/לא קריאה בכל קריאה).
+async function verifyRecentSend(chatId, text) {
+  try {
+    const chat = await client.getChatById(chatId);
+    const lm = chat.lastMessage;
+    return lm && lm.fromMe && lm.body === text ? lm : null;
+  } catch {
+    return null;
+  }
+}
+
 async function qrDataUrl() {
   if (!lastQr) return null;
   try { return await QRCode.toDataURL(lastQr, { margin: 1, width: 320 }); } catch { return null; }
@@ -87,12 +104,15 @@ module.exports = {
       } catch { /* חיווי הקלדה best-effort */ }
     }
 
-    const sent = await client.sendMessage(chatId, outgoing);
+    let sent = await client.sendMessage(chatId, outgoing);
     if (!sent) {
-      // whatsapp-web.js לפעמים מחזיר undefined בלי לזרוק (תקלה בצד WhatsApp Web) —
-      // בכוונה לא מנסים שוב כאן: יתכן שההודעה כן נמסרה, ורצון חוזר עלול לשלוח פעמיים.
-      // נשארים עם דיווח כשל רגיל ל-backoff של ה-outbox (איטי יותר, בטוח יותר).
-      throw new Error('sendMessage לא החזיר הודעה — יתכן כשל בוואטסאפ Web (או שכן נמסרה, לא בטוח)');
+      // אומתה בפועל (2026-07-21): הודעה אמיתית נמסרה ללקוח בזמן ש-sendMessage החזיר
+      // falsy — לכן לפני שמדווחים כשל, בודקים בהיסטוריית הצ'אט אם היא כן הגיעה.
+      await sleep(1500);
+      sent = await verifyRecentSend(chatId, outgoing);
+      if (!sent) {
+        throw new Error('sendMessage לא החזיר הודעה ולא אומתה בהיסטוריית הצ׳אט — כשל אמיתי כנראה');
+      }
     }
 
     let edited = false;
@@ -104,6 +124,34 @@ module.exports = {
       } catch { /* עריכה נכשלה — משאירים */ }
     }
     return { waMsgId: sent.id?._serialized || '', edited };
+  },
+
+  // אבחון: ההודעה האחרונה בצ'אט — לבדוק אם הודעה שדווחה כ'נכשלה' בעצם נמסרה.
+  // מפורט מאוד בכוונה — כדי להבין איפה בדיוק זה נכשל (getChatById? getChats? lastMessage?)
+  async getLastMessage(phoneE164) {
+    const debug = {};
+    try {
+      debug.step = 'getChatById';
+      const chat = await client.getChatById(`${phoneE164}@c.us`);
+      debug.gotChat = !!chat;
+      debug.step = 'lastMessage';
+      const lm = chat.lastMessage;
+      debug.hasLastMessage = !!lm;
+      if (!lm) return { ...debug, error: 'no_last_message' };
+      return { fromMe: lm.fromMe, body: lm.body, timestamp: lm.timestamp };
+    } catch (e) {
+      return { ...debug, error: e && e.message, name: e && e.name, stack: e && String(e.stack || '').slice(0, 300) };
+    }
+  },
+
+  // אבחון זמני: עד כמה הבעיה רחבה
+  async debugScope() {
+    const out = {};
+    try { out.getState = client.getState ? await client.getState() : 'n/a'; } catch (e) { out.getStateErr = e.message; }
+    try { const chats = await client.getChats(); out.getChats = { count: chats.length, sample: chats.slice(0, 3).map((c) => ({ id: c.id && c.id._serialized, name: c.name, hasLastMessage: !!c.lastMessage })) }; } catch (e) { out.getChatsErr = e.message; }
+    try { const info = client.info; out.info = info ? { pushname: info.pushname, wid: info.wid && info.wid._serialized } : null; } catch (e) { out.infoErr = e.message; }
+    try { const own = await client.getChatById(client.info.wid._serialized); out.getChatByIdOwn = { ok: true, name: own.name }; } catch (e) { out.getChatByIdOwnErr = e.message; }
+    return out;
   },
 
   onIncomingMessage(cb) { incomingCb = cb; },
