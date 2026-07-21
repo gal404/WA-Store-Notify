@@ -198,6 +198,19 @@ class WSN_Outbox
         ));
     }
 
+    /** רשימת הודעות ממתינות/בטיפול לתצוגה בדשבורד הגשר — קריאה בלבד, לא תובעת */
+    public static function list_pending(int $limit = 20): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, kind, phone_e164, status, attempts, order_id, scheduled_at, created_at
+             FROM " . self::table() . "
+             WHERE status IN ('queued','claimed')
+             ORDER BY priority ASC, id ASC
+             LIMIT %d", $limit
+        ), ARRAY_A);
+    }
+
     /** מסנכרן מספר טלפון בהודעות שעדיין בתור — למשל אחרי תיקון טעות הקלדה בהזמנה */
     public static function update_phone_for_order(int $order_id, string $phone_e164): int
     {

@@ -36,4 +36,5 @@ module.exports = {
   report: (results) => call('POST', '/report', { results }),
   optout: (events) => call('POST', '/optout', { events }),
   heartbeat: (payload) => call('POST', '/heartbeat', payload),
+  queue: (limit) => call('GET', `/queue?limit=${encodeURIComponent(limit)}`),
 };

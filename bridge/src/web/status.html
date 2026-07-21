@@ -7,18 +7,28 @@
 <style>
   body { font-family: "Segoe UI", Arial, sans-serif; background: #f6f7f8; color: #1f2a2e; margin: 0; }
   header { background: #128C7E; color: #fff; padding: 14px 18px; font-size: 18px; font-weight: 600; }
-  main { max-width: 560px; margin: 0 auto; padding: 18px 14px; }
+  main { max-width: 640px; margin: 0 auto; padding: 18px 14px; }
   .card { background: #fff; border: 1px solid #e3e8ea; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
   .good { color: #007a3d; font-weight: 600; }
   .bad { color: #b3261e; font-weight: 600; }
   img#qr { width: 240px; max-width: 100%; display: block; margin: 12px auto; border: 1px solid #e3e8ea; border-radius: 10px; }
-  input, button { font: inherit; font-size: 16px; }
-  input { width: 100%; padding: 10px; border: 1px solid #e3e8ea; border-radius: 10px; box-sizing: border-box; }
+  input, button, textarea { font: inherit; font-size: 16px; }
+  input, textarea { width: 100%; padding: 10px; border: 1px solid #e3e8ea; border-radius: 10px; box-sizing: border-box; }
+  textarea { resize: vertical; min-height: 70px; }
   button { background: #128C7E; color: #fff; border: none; border-radius: 10px; padding: 11px 18px; cursor: pointer; margin-top: 8px; }
   button.ghost { background: none; color: #6b7a80; border: 1px solid #e3e8ea; }
+  button:disabled { opacity: 0.6; cursor: default; }
   .stats span { display: inline-block; margin-inline-end: 16px; }
   #code { font-size: 30px; letter-spacing: 6px; text-align: center; color: #128C7E; font-weight: 700; direction: ltr; }
   .msg { font-size: 14px; margin-top: 8px; min-height: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 4px; border-bottom: 1px solid #eef1f2; vertical-align: top; }
+  th { color: #6b7a80; font-weight: 600; }
+  td.phone, td.when { direction: ltr; text-align: right; white-space: nowrap; }
+  .hint { color: #6b7a80; }
+  .warn { color: #a9711a; }
+  .field-row { display: flex; gap: 8px; }
+  .field-row input:first-child { max-width: 180px; }
 </style>
 </head>
 <body>
@@ -30,10 +40,73 @@
     <p class="stats" id="stats">—</p>
     <p id="flags"></p>
   </div>
+  <div class="card">
+    <b>תור הודעות ממתינות</b>
+    <div id="queueWrap"><p class="hint">טוען…</p></div>
+  </div>
+  <div class="card">
+    <b>שליחה מיידית מהגשר</b>
+    <p class="hint">שליחה ישירה, בלי לעבור דרך תור ה-WP — לא כפופה לתקרות/שעות שקט, ולא נרשמת ביומן ההודעות של WP. לבדיקות בלבד, לא לשימוש שגרתי.</p>
+    <div class="field-row">
+      <input id="snPhone" placeholder="9725XXXXXXXX" dir="ltr">
+      <textarea id="snText" placeholder="טקסט ההודעה" style="flex:1"></textarea>
+    </div>
+    <button onclick="sendNow()" id="snBtn">שלח עכשיו</button>
+    <div class="msg" id="snMsg"></div>
+  </div>
 </main>
 <script>
 let timer = null;
 function schedule(ms) { clearTimeout(timer); timer = setTimeout(refresh, ms); }
+
+function fmtWhen(s) {
+  if (!s) return '—';
+  const d = new Date(s.replace(' ', 'T'));
+  if (isNaN(d.getTime())) return s;
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hm = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  return sameDay ? hm : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) + ' ' + hm;
+}
+
+// "למה זה מחכה" — לפי הכללים בפועל (rules) והשימוש הנוכחי בתקרות (counters), לא רק scheduled_at
+function whyWaiting(item, rules, counters, quiet) {
+  if (item.status === 'claimed') return '<span class="good">בטיפול על ידי הגשר עכשיו…</span>';
+  const tr = (rules && rules.transactional) || {};
+  const now = new Date();
+  const sch = item.scheduled_at ? new Date(item.scheduled_at.replace(' ', 'T')) : null;
+  if (sch && sch.getTime() > now.getTime()) {
+    return 'מתוזמן ל-' + fmtWhen(item.scheduled_at) + (item.attempts > 0 ? ' (ניסיון חוזר)' : '');
+  }
+  if (quiet) return '<span class="warn">שעות שקט — ימתין עד ' + (tr.quiet_to || '08:00') + '</span>';
+  if (item.kind !== 'test' && (counters.sent_hour || 0) >= (tr.hourly_cap || Infinity)) {
+    return '<span class="warn">תקרה שעתית מלאה (' + counters.sent_hour + '/' + tr.hourly_cap + ')</span>';
+  }
+  if (item.kind !== 'test' && (counters.sent_today || 0) >= (tr.daily_cap || Infinity)) {
+    return '<span class="warn">תקרה יומית מלאה (' + counters.sent_today + '/' + tr.daily_cap + ')</span>';
+  }
+  return 'אמור להיתפס בסיבוב הבא';
+}
+
+function renderQueue(d) {
+  const wrap = document.getElementById('queueWrap');
+  const q = d.queue;
+  if (!q || q.error) { wrap.innerHTML = '<p class="bad">לא ניתן לטעון את התור' + (q && q.error ? ': ' + q.error : '') + '</p>'; return; }
+  const items = q.items || [];
+  if (!items.length) { wrap.innerHTML = '<p class="hint">התור ריק כרגע.</p>'; return; }
+  let html = '<table><thead><tr><th>טלפון</th><th>סוג</th><th>הזמנה</th><th>סטטוס</th><th>מתי יישלח</th></tr></thead><tbody>';
+  items.forEach(function (item) {
+    html += '<tr>' +
+      '<td class="phone">' + item.phone_e164 + '</td>' +
+      '<td>' + item.kind + '</td>' +
+      '<td>' + (item.order_id ? '#' + item.order_id : '—') + '</td>' +
+      '<td>' + (item.status === 'claimed' ? 'בטיפול' : 'ממתין') + '</td>' +
+      '<td>' + whyWaiting(item, d.rules, d.counters || {}, d.quiet) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
 
 async function refresh() {
   let d;
@@ -71,6 +144,8 @@ async function refresh() {
   if (d.breaker && d.breaker.open) flags.push('<span class="bad">מפסק זרם פתוח</span>');
   if (d.warmup_day) flags.push('חימום יום ' + d.warmup_day);
   document.getElementById('flags').innerHTML = flags.join(' · ');
+
+  renderQueue(d);
 }
 
 async function pair() {
@@ -85,6 +160,29 @@ async function pair() {
     msg.textContent = 'הקלד את הקוד בוואטסאפ תוך דקה.';
   } catch (e) { msg.textContent = e.message; }
   schedule(5000);
+}
+
+async function sendNow() {
+  const phone = document.getElementById('snPhone').value;
+  const text = document.getElementById('snText').value;
+  const msg = document.getElementById('snMsg');
+  const btn = document.getElementById('snBtn');
+  if (!phone || !text.trim()) { msg.textContent = 'צריך מספר וטקסט'; return; }
+  btn.disabled = true;
+  msg.textContent = 'שולח…';
+  try {
+    const d = await (await fetch('/api/send-now', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone, text: text })
+    })).json();
+    if (!d.ok) throw new Error(d.error);
+    msg.innerHTML = '<span class="good">✔ נשלח</span>';
+    document.getElementById('snText').value = '';
+  } catch (e) {
+    msg.innerHTML = '<span class="bad">שגיאה: ' + e.message + '</span>';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function logout() {

@@ -90,15 +90,18 @@ function warmupDay() {
 /** אילו סוגי הודעות מותר לשלוח כרגע (לפי שעה, חלון, caps, חימום) */
 function allowedKinds() {
   prune();
-  if (inQuietHours()) return [];
-  const kinds = [];
-  const tr = state.remote.transactional;
+  // בדיקה ידנית של מנהל ("שלח לי לבדיקה") — לא הודעה יזומה ללקוח, אז לא כפופה
+  // לשעות שקט: המנהל צריך לוודא שהצינור עובד בכל שעה, לא רק בשעות הפעילות.
+  // עדיין נספרת בתוך ה-caps (recordSent) כדי לא לפתוח פרצה לעקיפתם.
+  const kinds = ['test'];
+  if (inQuietHours()) return kinds;
 
+  const tr = state.remote.transactional;
   const trDaily = warmupDailyCap(tr.daily_cap);
   const trOk = countWithin(counters.sent, 3600e3) < tr.hourly_cap
     && countWithin(counters.sent, 24 * 3600e3) < trDaily;
   if (trOk) {
-    kinds.push('status', 'item_change', 'free', 'test');
+    kinds.push('status', 'item_change', 'free');
   }
 
   const cp = state.remote.campaign;

@@ -77,20 +77,22 @@ module.exports = {
     }
     const outgoing = typo ? typo.wrong : text;
 
-    try {
-      const chat = await client.getChatById(chatId);
-      await sleep(800 + Math.random() * 1200); // "קריאה"
-      await chat.sendStateTyping();
-      await sleep(Math.min(1000 + outgoing.length * 55 + Math.random() * 1500, 20000));
-      await chat.clearState();
-    } catch { /* חיווי הקלדה best-effort */ }
+    if (process.env.WSN_DEBUG_SKIP_TYPING !== '1') {
+      try {
+        const chat = await client.getChatById(chatId);
+        await sleep(800 + Math.random() * 1200); // "קריאה"
+        await chat.sendStateTyping();
+        await sleep(Math.min(1000 + outgoing.length * 55 + Math.random() * 1500, 20000));
+        await chat.clearState();
+      } catch { /* חיווי הקלדה best-effort */ }
+    }
 
     const sent = await client.sendMessage(chatId, outgoing);
     if (!sent) {
       // whatsapp-web.js לפעמים מחזיר undefined בלי לזרוק (תקלה בצד WhatsApp Web) —
-      // בלי הבדיקה הזו הקוד למטה זורק TypeError גולמי ("Cannot read properties of
-      // undefined") שמבלבל ביומן; כך processOne מקבל שגיאה ברורה וממשיך backoff כרגיל.
-      throw new Error('sendMessage לא החזיר הודעה — יתכן כשל זמני בוואטסאפ Web');
+      // בכוונה לא מנסים שוב כאן: יתכן שההודעה כן נמסרה, ורצון חוזר עלול לשלוח פעמיים.
+      // נשארים עם דיווח כשל רגיל ל-backoff של ה-outbox (איטי יותר, בטוח יותר).
+      throw new Error('sendMessage לא החזיר הודעה — יתכן כשל בוואטסאפ Web (או שכן נמסרה, לא בטוח)');
     }
 
     let edited = false;

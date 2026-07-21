@@ -30,6 +30,9 @@ class WSN_Rest
         register_rest_route(self::NS, '/heartbeat', [
             'methods' => 'POST', 'callback' => [__CLASS__, 'heartbeat'], 'permission_callback' => $perm,
         ]);
+        register_rest_route(self::NS, '/queue', [
+            'methods' => 'GET', 'callback' => [__CLASS__, 'queue'], 'permission_callback' => $perm,
+        ]);
     }
 
     public static function check_auth(WP_REST_Request $req)
@@ -62,6 +65,18 @@ class WSN_Rest
             'store_name' => get_bloginfo('name'),
             'plugin_version' => WSN_VERSION,
             'time' => current_time('mysql'),
+        ]);
+    }
+
+    // קריאה בלבד — לתצוגה בדשבורד המקומי של הגשר, לא תובעת ולא משנה שום שורה
+    public static function queue(WP_REST_Request $req): WP_REST_Response
+    {
+        $limit = min(100, max(1, (int) ($req->get_param('limit') ?? 20)));
+        return new WP_REST_Response([
+            'ok' => true,
+            'server_time' => current_time('mysql'),
+            'items' => WSN_Outbox::list_pending($limit),
+            'counts' => WSN_Outbox::counts(),
         ]);
     }
 
