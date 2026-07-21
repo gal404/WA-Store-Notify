@@ -72,6 +72,14 @@ $post = admin_url('admin-post.php');
                 <label><input type="checkbox" name="checkout_optin_enabled" value="1" <?php checked($s['checkout_optin_enabled']); ?>> הצג צ'קבוקס</label><br>
                 <input type="text" name="checkout_optin_label" value="<?php echo esc_attr($s['checkout_optin_label']); ?>" class="wsn-w-lg">
             </td></tr>
+            <tr><th>סיבות להסרת פריט / שינוי כמות</th><td>
+                <textarea name="item_reasons_removed" rows="4" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['item_reasons_removed']); ?></textarea>
+                <p class="description">סיבה בכל שורה. מוצגות במודאל כשמסירים פריט או משנים כמות. "אחר" (הזנה ידנית) נוסף תמיד אוטומטית.</p>
+            </td></tr>
+            <tr><th>סיבות להוספת פריט</th><td>
+                <textarea name="item_reasons_added" rows="4" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['item_reasons_added']); ?></textarea>
+                <p class="description">סיבה בכל שורה. מוצגות במודאל כשמוסיפים פריט להזמנה. "אחר" נוסף תמיד אוטומטית.</p>
+            </td></tr>
             <tr><th>מילות הסרה</th><td>
                 <textarea name="optout_keywords" rows="3" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['optout_keywords']); ?></textarea>
                 <p class="description">מילה בכל שורה. לקוח ששולח אחת מהן — מוסר לצמיתות.</p>

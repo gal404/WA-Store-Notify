@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 class WSN_Install
 {
-    const DB_VERSION = '1';
+    const DB_VERSION = '2'; // 2: נוספה טבלת wsn_item_events (יומן תנועות פריטים)
 
     public static function activate(): void
     {
@@ -76,6 +76,27 @@ class WSN_Install
             UNIQUE KEY phone (phone_e164),
             KEY status (status),
             KEY last_order_at (last_order_at)
+        ) $charset;");
+
+        // יומן תנועות פריטים בהזמנה — הבסיס להודעות אוטומטיות על שינויים
+        dbDelta("CREATE TABLE {$p}wsn_item_events (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            order_id bigint(20) unsigned NOT NULL,
+            order_item_id bigint(20) unsigned NULL,
+            event_type varchar(20) NOT NULL,
+            product_id bigint(20) unsigned NULL,
+            variation_id bigint(20) unsigned NULL,
+            item_name varchar(255) NOT NULL,
+            qty_before int NULL,
+            qty_after int NULL,
+            reason_code varchar(30) NULL,
+            reason_text varchar(255) NULL,
+            notified tinyint(1) NOT NULL DEFAULT 0,
+            user_id bigint(20) unsigned NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY order_id (order_id),
+            KEY pending (order_id,reason_code)
         ) $charset;");
 
         dbDelta("CREATE TABLE {$p}wsn_campaigns (

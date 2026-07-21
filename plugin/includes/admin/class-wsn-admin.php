@@ -37,9 +37,24 @@ class WSN_Admin
         add_submenu_page('wsn-status', 'קמפיינים', 'קמפיינים', self::CAP, 'wsn-campaigns', [__CLASS__, 'page_campaigns']);
     }
 
+    /** מסך עריכת הזמנה — גם קלאסי וגם HPOS */
+    private static function is_order_screen(): bool
+    {
+        if (!function_exists('get_current_screen')) {
+            return false;
+        }
+        $screen = get_current_screen();
+        if (!$screen) {
+            return false;
+        }
+        $order_screen = function_exists('wc_get_page_screen_id') ? wc_get_page_screen_id('shop-order') : 'shop_order';
+        return in_array($screen->id, [$order_screen, 'shop_order'], true);
+    }
+
     public static function assets($hook): void
     {
-        if (strpos((string) $hook, 'wsn-') === false) {
+        // נטען גם במסך ההזמנה, כי שם רץ מודאל סיבות תנועות הפריטים
+        if (strpos((string) $hook, 'wsn-') === false && !self::is_order_screen()) {
             return;
         }
         wp_enqueue_style('wsn-admin', WSN_PLUGIN_URL . 'assets/css/admin.css', [], WSN_VERSION);
@@ -132,6 +147,8 @@ class WSN_Admin
         $changes['warmup_started'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', $in['warmup_started'] ?? '') ? $in['warmup_started'] : '';
         $changes['tracking_meta_key'] = sanitize_text_field($in['tracking_meta_key'] ?? '');
         $changes['optout_keywords'] = sanitize_textarea_field($in['optout_keywords'] ?? '');
+        $changes['item_reasons_removed'] = sanitize_textarea_field($in['item_reasons_removed'] ?? '');
+        $changes['item_reasons_added'] = sanitize_textarea_field($in['item_reasons_added'] ?? '');
         $changes['checkout_optin_label'] = sanitize_text_field($in['checkout_optin_label'] ?? '');
         $changes['test_phone'] = sanitize_text_field($in['test_phone'] ?? '');
         $changes['alert_email'] = sanitize_email($in['alert_email'] ?? '');

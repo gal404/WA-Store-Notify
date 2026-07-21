@@ -8,11 +8,193 @@ defined('ABSPATH') || exit;
  */
 class WSN_Order_Items
 {
+    /** מפתח ה-meta ששומר את מצב הפריטים האחרון הידוע (בסיס להשוואה) */
+    const STATE_META = '_wsn_items_state';
+
     public static function init(): void
     {
         add_action('woocommerce_saved_order_items', [__CLASS__, 'flag_dirty'], 10, 2);
         add_action('add_meta_boxes', [__CLASS__, 'add_metabox']);
         add_action('wp_ajax_wsn_items_notify', [__CLASS__, 'ajax_send']);
+
+        // מעקב תנועות פריטים (רק בעריכה בניהול, לא ביצירת ההזמנה מהחנות)
+        add_action('woocommerce_new_order_item', [__CLASS__, 'on_new_item'], 10, 3);
+        add_action('woocommerce_before_delete_order_item', [__CLASS__, 'on_before_delete_item'], 10, 1);
+        add_action('woocommerce_saved_order_items', [__CLASS__, 'on_saved_items'], 20, 2);
+
+        add_action('wp_ajax_wsn_pending_item_events', [__CLASS__, 'ajax_pending_events']);
+        add_action('wp_ajax_wsn_save_item_reasons', [__CLASS__, 'ajax_save_reasons']);
+    }
+
+    /** מצב הפריטים הנוכחי כפי שהוא בהזמנה: item_id => פרטים */
+    private static function snapshot_state(WC_Order $order): array
+    {
+        $state = [];
+        foreach ($order->get_items() as $item_id => $item) {
+            $state[(string) $item_id] = [
+                'name' => $item->get_name(),
+                'qty'  => (int) $item->get_quantity(),
+                'pid'  => (int) $item->get_product_id(),
+                'vid'  => (int) $item->get_variation_id(),
+            ];
+        }
+        return $state;
+    }
+
+    private static function get_state(WC_Order $order): ?array
+    {
+        $raw = $order->get_meta(self::STATE_META);
+        if ($raw === '' || $raw === null) {
+            return null; // מעקב עוד לא אותחל להזמנה הזו
+        }
+        $decoded = is_array($raw) ? $raw : json_decode((string) $raw, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private static function save_state(WC_Order $order, array $state): void
+    {
+        $order->update_meta_data(self::STATE_META, wp_json_encode($state, JSON_UNESCAPED_UNICODE));
+        $order->save();
+    }
+
+    /**
+     * מאתחל מעקב אם עוד לא אותחל, בלי לרשום תנועות — כדי שהפריטים הקיימים
+     * של הזמנה ותיקה לא ייחשבו כ"נוספו עכשיו".
+     */
+    public static function ensure_state(WC_Order $order): void
+    {
+        if (self::get_state($order) === null) {
+            self::save_state($order, self::snapshot_state($order));
+        }
+    }
+
+    /** רושמים תנועות רק בעריכה מהניהול, ורק אחרי שהמעקב אותחל להזמנה */
+    private static function should_track(WC_Order $order): bool
+    {
+        return is_admin() && !wp_doing_cron() && self::get_state($order) !== null;
+    }
+
+    public static function on_new_item($item_id, $item, $order_id): void
+    {
+        if (!$item instanceof WC_Order_Item_Product) {
+            return; // משלוח/עמלה — לא פריט מוצר
+        }
+        $order = wc_get_order($order_id);
+        if (!$order instanceof WC_Order || !self::should_track($order)) {
+            return;
+        }
+        $state = self::get_state($order) ?: [];
+        if (isset($state[(string) $item_id])) {
+            return; // כבר מוכר — לא הוספה חדשה
+        }
+        WSN_Item_Events::record([
+            'order_id'      => $order->get_id(),
+            'order_item_id' => $item_id,
+            'event_type'    => WSN_Item_Events::TYPE_ADDED,
+            'product_id'    => $item->get_product_id(),
+            'variation_id'  => $item->get_variation_id(),
+            'item_name'     => $item->get_name(),
+            'qty_after'     => (int) $item->get_quantity(),
+        ]);
+        $state[(string) $item_id] = [
+            'name' => $item->get_name(),
+            'qty'  => (int) $item->get_quantity(),
+            'pid'  => (int) $item->get_product_id(),
+            'vid'  => (int) $item->get_variation_id(),
+        ];
+        self::save_state($order, $state);
+    }
+
+    public static function on_before_delete_item($item_id): void
+    {
+        $item = WC_Order_Factory::get_order_item($item_id);
+        if (!$item instanceof WC_Order_Item_Product) {
+            return;
+        }
+        $order = wc_get_order($item->get_order_id());
+        if (!$order instanceof WC_Order || !self::should_track($order)) {
+            return;
+        }
+        // הפרטים נלקחים לפני המחיקה — אחריה הם כבר לא יהיו זמינים
+        WSN_Item_Events::record([
+            'order_id'      => $order->get_id(),
+            'order_item_id' => $item_id,
+            'event_type'    => WSN_Item_Events::TYPE_REMOVED,
+            'product_id'    => $item->get_product_id(),
+            'variation_id'  => $item->get_variation_id(),
+            'item_name'     => $item->get_name(),
+            'qty_before'    => (int) $item->get_quantity(),
+        ]);
+        $state = self::get_state($order) ?: [];
+        unset($state[(string) $item_id]);
+        self::save_state($order, $state);
+    }
+
+    /** שינויי כמות: משווים את המצב הנוכחי למצב האחרון הידוע */
+    public static function on_saved_items($order_id, $items): void
+    {
+        $order = wc_get_order($order_id);
+        if (!$order instanceof WC_Order || !self::should_track($order)) {
+            return;
+        }
+        $prev = self::get_state($order) ?: [];
+        $now  = self::snapshot_state($order);
+
+        foreach ($now as $item_id => $cur) {
+            $before = $prev[$item_id]['qty'] ?? null;
+            if ($before !== null && (int) $before !== (int) $cur['qty']) {
+                WSN_Item_Events::record([
+                    'order_id'      => $order->get_id(),
+                    'order_item_id' => (int) $item_id,
+                    'event_type'    => WSN_Item_Events::TYPE_QTY,
+                    'product_id'    => $cur['pid'],
+                    'variation_id'  => $cur['vid'],
+                    'item_name'     => $cur['name'],
+                    'qty_before'    => (int) $before,
+                    'qty_after'     => (int) $cur['qty'],
+                ]);
+            }
+        }
+        self::save_state($order, $now);
+    }
+
+    public static function ajax_pending_events(): void
+    {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        check_ajax_referer('wsn_item_events_' . $order_id);
+        if (!current_user_can('manage_wa_notify')) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $pending = WSN_Item_Events::pending($order_id);
+        $out = [];
+        foreach ($pending as $e) {
+            $out[] = [
+                'id'          => (int) $e['id'],
+                'type'        => $e['event_type'],
+                'description' => WSN_Item_Events::describe($e),
+                'reasons'     => WSN_Item_Events::reasons($e['event_type']),
+            ];
+        }
+        wp_send_json_success(['events' => $out]);
+    }
+
+    public static function ajax_save_reasons(): void
+    {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        check_ajax_referer('wsn_item_events_' . $order_id);
+        if (!current_user_can('manage_wa_notify')) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $reasons = (array) ($_POST['reasons'] ?? []);
+        $saved = 0;
+        foreach ($reasons as $event_id => $r) {
+            $code = sanitize_key($r['code'] ?? '');
+            $text = sanitize_text_field(wp_unslash($r['text'] ?? ''));
+            if ($code !== '' && WSN_Item_Events::set_reason((int) $event_id, $code, $text)) {
+                $saved++;
+            }
+        }
+        wp_send_json_success(['saved' => $saved]);
     }
 
     public static function flag_dirty(int $order_id, $items): void
@@ -62,6 +244,53 @@ class WSN_Order_Items
     {
         $screen = function_exists('wc_get_page_screen_id') ? wc_get_page_screen_id('shop-order') : 'shop_order';
         add_meta_box('wsn_items_notify', 'וואטסאפ — עדכון פריטים ללקוח', [__CLASS__, 'render_metabox'], $screen, 'normal', 'default');
+        add_meta_box('wsn_item_events', 'וואטסאפ — תנועות פריטים', [__CLASS__, 'render_events_metabox'], $screen, 'normal', 'default');
+    }
+
+    /** יומן התנועות של ההזמנה + עוגן למודאל הסיבות */
+    public static function render_events_metabox($post_or_order): void
+    {
+        $order = $post_or_order instanceof WC_Order ? $post_or_order : wc_get_order($post_or_order->ID ?? 0);
+        if (!$order instanceof WC_Order || !current_user_can('manage_wa_notify')) {
+            return;
+        }
+        // אתחול שקט: פריטים קיימים לא נרשמים כ"נוספו עכשיו"
+        self::ensure_state($order);
+
+        $order_id = $order->get_id();
+        $events = WSN_Item_Events::for_order($order_id);
+        ?>
+        <div class="wsn wsn-events" dir="rtl"
+             data-order-id="<?php echo (int) $order_id; ?>"
+             data-nonce="<?php echo esc_attr(wp_create_nonce('wsn_item_events_' . $order_id)); ?>">
+            <?php if (!$events): ?>
+                <p class="description">אין עדיין תנועות. שינוי כמות, הוספה או הסרה של פריט יירשמו כאן אוטומטית.</p>
+            <?php else: ?>
+                <table class="widefat striped">
+                    <thead><tr><th>מתי</th><th>תנועה</th><th>סיבה</th><th>מי</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($events as $e):
+                        $user = $e['user_id'] ? get_userdata((int) $e['user_id']) : null;
+                        $reason = WSN_Item_Events::reason_label($e);
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html(mysql2date('d/m H:i', $e['created_at'])); ?></td>
+                            <td><?php echo esc_html(WSN_Item_Events::describe($e)); ?></td>
+                            <td>
+                                <?php if ($reason !== ''): ?>
+                                    <span class="wsn-pill wsn-pill-order"><?php echo esc_html($reason); ?></span>
+                                <?php else: ?>
+                                    <span class="wsn-pill wsn-pill-queued">ממתין לסיבה</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo esc_html($user ? $user->display_name : '—'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+        <?php
     }
 
     public static function render_metabox($post_or_order): void

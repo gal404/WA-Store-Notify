@@ -40,6 +40,9 @@ class WSN_Settings
             'delete_data_on_uninstall' => 0,
             // עדכון תוסף אוטומטי (GitHub פרטי דרך Plugin Update Checker)
             'github_token'             => '',
+            // סיבות לתנועות פריטים — ניתנות לעריכה בלי שינוי קוד
+            'item_reasons_removed'     => WSN_Item_Events::DEFAULT_REASONS_REMOVED,
+            'item_reasons_added'       => WSN_Item_Events::DEFAULT_REASONS_ADDED,
         ];
     }
 

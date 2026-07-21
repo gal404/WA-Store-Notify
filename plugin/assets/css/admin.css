@@ -53,6 +53,33 @@
 }
 .wsn .description { color: var(--wsn-muted); }
 
+/* ---------- מודאל סיבות לתנועות פריטים ---------- */
+.wsn-modal-backdrop {
+    position: fixed; inset: 0; z-index: 160000;
+    background: rgba(15, 46, 43, .45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.wsn-modal {
+    background: #fff; border-radius: 12px; padding: 20px;
+    width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(15, 46, 43, .25);
+    font-family: inherit;
+}
+.wsn-modal h2 { margin: 0 0 6px; font-size: 16px; color: #0f2e2b; border: 0; padding: 0; }
+.wsn-modal .description { margin: 0 0 14px; }
+.wsn-modal-row {
+    display: grid; gap: 6px;
+    padding: 10px 0; border-top: 1px solid #dfe5e3;
+}
+.wsn-modal-desc { font-weight: 600; color: #0f2e2b; }
+.wsn-modal select, .wsn-modal input[type="text"] { width: 100%; border-radius: 7px; }
+.wsn-modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+@media screen and (max-width: 600px) {
+    .wsn-modal { padding: 16px; }
+    .wsn-modal-actions .button { flex: 1; text-align: center; }
+}
+
 /* ---------- ניווט בין המסכים ---------- */
 .wsn .wsn-nav { margin: 14px 0 18px; padding-bottom: 0; border-bottom: 1px solid var(--wsn-border); }
 .wsn .wsn-nav .nav-tab {

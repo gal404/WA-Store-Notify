@@ -90,6 +90,91 @@
             .catch(function (err) { status.textContent = 'שגיאה: ' + err.message; btn.disabled = false; });
     });
 
+    // ---- מודאל סיבות לתנועות פריטים (במסך עריכת הזמנה) ----
+    var eventsRoot = document.querySelector('.wsn-events');
+    if (eventsRoot) {
+        var orderId = eventsRoot.dataset.orderId;
+        var evNonce = eventsRoot.dataset.nonce;
+
+        function post(action, extra) {
+            var body = new URLSearchParams({ action: action, _wpnonce: evNonce, order_id: orderId });
+            Object.keys(extra || {}).forEach(function (k) { body.append(k, extra[k]); });
+            return fetch(WSN.ajax, { method: 'POST', body: body }).then(function (r) { return r.json(); });
+        }
+
+        function buildModal(events) {
+            var wrap = document.createElement('div');
+            wrap.className = 'wsn-modal-backdrop';
+            var rows = events.map(function (ev) {
+                var opts = Object.keys(ev.reasons).map(function (code) {
+                    return '<option value="' + code + '">' + ev.reasons[code] + '</option>';
+                }).join('');
+                return '<div class="wsn-modal-row" data-event-id="' + ev.id + '">' +
+                    '<div class="wsn-modal-desc">' + ev.description + '</div>' +
+                    '<select class="wsn-reason">' + opts + '</select>' +
+                    '<input type="text" class="wsn-reason-other" placeholder="פרט את הסיבה" hidden>' +
+                    '</div>';
+            }).join('');
+            wrap.innerHTML =
+                '<div class="wsn-modal" role="dialog" aria-modal="true" dir="rtl">' +
+                '<h2>' + (events.length > 1 ? 'סיבות לשינויים בהזמנה' : 'סיבת השינוי בהזמנה') + '</h2>' +
+                '<p class="description">התנועות נשמרו. בחירת סיבה תאפשר בהמשך לשלוח ללקוח הודעה מדויקת על השינוי.</p>' +
+                rows +
+                '<div class="wsn-modal-actions">' +
+                '<button type="button" class="button button-primary wsn-modal-save">שמור</button>' +
+                '<button type="button" class="button wsn-modal-later">אחר כך</button>' +
+                '</div></div>';
+            document.body.appendChild(wrap);
+
+            // "אחר" חושף שדה טקסט חופשי
+            wrap.addEventListener('change', function (e) {
+                if (!e.target.classList.contains('wsn-reason')) return;
+                var other = e.target.parentElement.querySelector('.wsn-reason-other');
+                other.hidden = e.target.value !== 'other';
+            });
+            wrap.querySelector('.wsn-modal-later').addEventListener('click', function () { wrap.remove(); });
+            wrap.querySelector('.wsn-modal-save').addEventListener('click', function () {
+                var btn = this;
+                btn.disabled = true;
+                var extra = {};
+                wrap.querySelectorAll('.wsn-modal-row').forEach(function (row) {
+                    var id = row.dataset.eventId;
+                    var code = row.querySelector('.wsn-reason').value;
+                    var text = row.querySelector('.wsn-reason-other').value;
+                    extra['reasons[' + id + '][code]'] = code;
+                    extra['reasons[' + id + '][text]'] = text;
+                });
+                post('wsn_save_item_reasons', extra).then(function () {
+                    wrap.remove();
+                    location.reload(); // מרענן את טבלת התנועות במטא-בוקס
+                }).catch(function () { btn.disabled = false; });
+            });
+        }
+
+        function checkPending() {
+            post('wsn_pending_item_events', {}).then(function (d) {
+                if (d && d.success && d.data.events.length && !document.querySelector('.wsn-modal-backdrop')) {
+                    buildModal(d.data.events);
+                }
+            }).catch(function () { /* שקט — לא מפריעים לעריכת ההזמנה */ });
+        }
+
+        // ווקומרס שומר/מוסיף/מסיר פריטים ב-AJAX. מאזינים לסיום הקריאות האלה
+        // (jQuery זמין תמיד ב-wp-admin) במקום לנחש אירוע פנימי של ווקומרס.
+        if (window.jQuery) {
+            window.jQuery(document).ajaxComplete(function (_e, _xhr, settings) {
+                var d = (settings && (settings.data || settings.url)) || '';
+                if (typeof d !== 'string') return;
+                if (d.indexOf('save_order_items') !== -1 ||
+                    d.indexOf('add_order_item') !== -1 ||
+                    d.indexOf('remove_order_item') !== -1) {
+                    setTimeout(checkPending, 400); // אחרי שווקומרס סיים לרנדר מחדש
+                }
+            });
+        }
+        checkPending(); // גם בטעינת העמוד, אם נשארו תנועות בלי סיבה
+    }
+
     // חישוב קהל יעד להערכת קמפיין (חי)
     var countBtn = document.getElementById('wsn-count-btn');
     if (countBtn) {
