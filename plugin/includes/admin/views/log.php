@@ -33,7 +33,7 @@ $cancellable = ['queued', 'claimed'];
 ?>
 <div class="wrap wsn" dir="rtl">
     <h1>יומן הודעות</h1>
-    <form method="get">
+    <form method="get" class="wsn-filters">
         <input type="hidden" name="page" value="wsn-log">
         <select name="fstatus">
             <option value="">כל הסטטוסים</option>
@@ -57,14 +57,16 @@ $cancellable = ['queued', 'claimed'];
             <span class="description">"שלח עכשיו" פועל רק על הודעות "ממתין" — מדלג בתור כדי שהגשר יתפוס בסבב הבא שלו.</span>
         </div>
 
-        <table class="wp-list-table widefat fixed striped">
+        <?php // column-primary + data-colname = התצוגה המוערמת של וורדפרס במובייל
+              // (העמודה הראשית נשארת גלויה, השאר נפתח בכפתור החץ; core מטפל בקליק) ?>
+        <table class="wp-list-table widefat striped">
             <thead><tr>
                 <td class="check-column"><input type="checkbox" onclick="document.querySelectorAll('.wsn-msg-check').forEach(c => c.checked = this.checked)"></td>
-                <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
+                <th class="column-primary">טלפון</th><th>מתי</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
             </tr></thead>
             <tbody>
             <?php if (!$rows): ?>
-                <tr><td colspan="8">אין רשומות.</td></tr>
+                <tr class="no-items"><td colspan="8">אין רשומות.</td></tr>
             <?php else: foreach ($rows as $r): ?>
                 <tr>
                     <td class="check-column">
@@ -72,16 +74,19 @@ $cancellable = ['queued', 'claimed'];
                             <input type="checkbox" class="wsn-msg-check" name="msg_ids[]" value="<?php echo (int) $r['id']; ?>">
                         <?php endif; ?>
                     </td>
-                    <td><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>
-                    <td dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
-                    <td><?php echo esc_html($r['kind']); ?></td>
-                    <td><?php echo esc_html(mb_strimwidth($r['body'], 0, 60, '…')); ?></td>
-                    <td>
+                    <td class="column-primary" data-colname="טלפון">
+                        <span dir="ltr"><?php echo esc_html($r['phone_e164']); ?></span>
+                        <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
+                    </td>
+                    <td data-colname="מתי"><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>
+                    <td data-colname="סוג"><?php echo esc_html($r['kind']); ?></td>
+                    <td data-colname="תוכן"><?php echo esc_html(mb_strimwidth($r['body'], 0, 60, '…')); ?></td>
+                    <td data-colname="סטטוס">
                         <?php echo esc_html($labels[$r['status']] ?? $r['status']); ?>
                         <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
                     </td>
-                    <td><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
-                    <td>
+                    <td data-colname="הזמנה"><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
+                    <td data-colname="פעולות">
                         <?php if ($r['status'] === 'queued'): ?>
                             <button type="button" class="button wsn-send-now-row" data-id="<?php echo (int) $r['id']; ?>">שלח מיידית</button>
                             <span class="wsn-send-now-status description"></span>

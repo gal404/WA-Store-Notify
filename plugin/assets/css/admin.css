@@ -13,3 +13,61 @@
 .wsn-variants textarea { width: 100%; margin-bottom: 8px; }
 .wsn-tpl code { background: #f0f0f1; padding: 1px 6px; border-radius: 4px; }
 .wsn .form-table th { width: 220px; }
+
+/* רוחבי שדות — במחלקות ולא ב-style inline, כי inline גובר על כל גיליון סגנונות
+   וניצח גם את הכלל של וורדפרס שמותח שדות ל-100% במובייל (forms.css) */
+.wsn .wsn-w-num  { width: 80px; }
+.wsn .wsn-w-date { width: 130px; }
+.wsn .wsn-w-sm   { width: 200px; }
+.wsn .wsn-w-md   { width: 320px; }
+.wsn .wsn-w-lg   { width: 420px; }
+
+/* רשת ביטחון: שום שדה לא חורג מרוחב המסך, בכל גודל מסך */
+.wsn input:not([type="checkbox"]):not([type="radio"]),
+.wsn textarea,
+.wsn select {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* מפתח API / טוקן ארוך — לשבור שורה במקום לדחוף את העמוד לרוחב */
+.wsn code { word-break: break-all; overflow-wrap: anywhere; }
+
+/* שורות כפתורים (סינון, פעולות קבוצתיות) — שיישברו יפה במסך צר */
+.wsn .tablenav.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; height: auto; }
+.wsn form.wsn-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+@media screen and (max-width: 782px) {
+    /* וורדפרס מרדד את form-table לשורות; ה-220px שלנו היה מחזיר עמודה צרה ומעיכה */
+    .wsn .form-table th { width: auto; }
+
+    /* במסך צר כל השדות ברוחב מלא — קריא ונוח להקלדה */
+    .wsn .wsn-w-num,
+    .wsn .wsn-w-date,
+    .wsn .wsn-w-sm,
+    .wsn .wsn-w-md,
+    .wsn .wsn-w-lg { width: 100%; }
+
+    /* שדות מספר/שעה נשארים צרים כדי ששניים ייכנסו בשורה ("מ־ ... עד ...") */
+    .wsn .wsn-w-num { width: 5.5em; display: inline-block; }
+    /* תאריך צריך מקום ל-10 תווים (2026-07-20) */
+    .wsn .wsn-w-date { width: 10em; display: inline-block; }
+
+    .wsn-card { min-width: 0; padding: 12px 14px; }
+    .wsn-cards { gap: 12px; }
+    .wsn-stats li { display: block; margin: 0 0 4px; }
+
+    /* התאמות לתצוגה המוערמת של וורדפרס: התווית מגיעה מ-data-colname */
+    .wsn .wp-list-table tr:not(.no-items) td.column-primary ~ td:not(.check-column) {
+        padding-right: 35%;
+        padding-left: 8px;
+    }
+    .wsn .wp-list-table tr:not(.no-items) td:not(.column-primary)::before {
+        right: 10px;
+        left: auto;
+        font-weight: 600;
+        color: #50575e;
+    }
+    .wsn .wp-list-table td.column-primary { padding-left: 50px; padding-right: 8px; }
+    .wsn .wp-list-table .column-primary .toggle-row { left: 0; right: auto; }
+}

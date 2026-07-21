@@ -35,7 +35,24 @@
   .st-sent { color: #007a3d; font-weight: 600; }
   .st-failed { color: #b3261e; font-weight: 600; }
   .st-cancelled, .st-expired { color: #6b7a80; }
-  .tbl-scroll { overflow-x: auto; }
+  .tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  @media (max-width: 600px) {
+    header { font-size: 16px; padding: 12px 14px; }
+    main { padding: 12px 10px; }
+    .card { padding: 12px; border-radius: 10px; }
+    /* מספר + טקסט אחד מתחת לשני, אחרת שניהם נמעכים במסך צר */
+    .field-row { flex-direction: column; }
+    .field-row input:first-child { max-width: 100%; }
+    /* כפתורים ברוחב מלא = יעד נגיעה נוח באצבע */
+    button { width: 100%; }
+    .pager { justify-content: space-between; }
+    .pager button { width: auto; }
+    .pager .pageinfo { order: -1; width: 100%; text-align: center; }
+    table { font-size: 13px; }
+    th, td { padding: 5px 3px; }
+    .stats span { display: block; margin: 0 0 4px; }
+  }
 </style>
 </head>
 <body>
@@ -112,17 +129,18 @@ function renderQueue(d) {
   if (!q || q.error) { wrap.innerHTML = '<p class="bad">לא ניתן לטעון את התור' + (q && q.error ? ': ' + q.error : '') + '</p>'; return; }
   const items = q.items || [];
   if (!items.length) { wrap.innerHTML = '<p class="hint">התור ריק כרגע.</p>'; return; }
-  let html = '<table><thead><tr><th>טלפון</th><th>סוג</th><th>הזמנה</th><th>סטטוס</th><th>מתי יישלח</th></tr></thead><tbody>';
+  let html = '<div class="tbl-scroll"><table><thead><tr><th>טלפון</th><th>סוג</th><th>הזמנה</th><th>סטטוס</th><th>מתי יישלח</th></tr></thead><tbody>';
   items.forEach(function (item) {
+    // whyWaiting מחזיר HTML מכוון (span עם מחלקה) — שאר השדות עוברים escaping
     html += '<tr>' +
-      '<td class="phone">' + item.phone_e164 + '</td>' +
-      '<td>' + item.kind + '</td>' +
-      '<td>' + (item.order_id ? '#' + item.order_id : '—') + '</td>' +
+      '<td class="phone">' + esc(item.phone_e164) + '</td>' +
+      '<td>' + esc(item.kind) + '</td>' +
+      '<td>' + (item.order_id ? '#' + esc(item.order_id) : '—') + '</td>' +
       '<td>' + (item.status === 'claimed' ? 'בטיפול' : 'ממתין') + '</td>' +
       '<td>' + whyWaiting(item, d.rules, d.counters || {}, d.quiet, d.paused) + '</td>' +
       '</tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   wrap.innerHTML = html;
 }
 

@@ -38,7 +38,7 @@ $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid
         </form>
     </h1>
 
-    <form method="get">
+    <form method="get" class="wsn-filters">
         <input type="hidden" name="page" value="wsn-contacts">
         <select name="fstatus">
             <option value="">כל הסטטוסים</option>
@@ -46,28 +46,31 @@ $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid
                 <option value="<?php echo esc_attr($k); ?>" <?php selected($fstatus, $k); ?>><?php echo esc_html($l); ?></option>
             <?php endforeach; ?>
         </select>
-        מינימום הזמנות: <input type="number" name="min_orders" value="<?php echo esc_attr($min_orders); ?>" style="width:70px">
+        <label>מינימום הזמנות: <input type="number" name="min_orders" value="<?php echo esc_attr($min_orders); ?>" class="wsn-w-num"></label>
         <button class="button">סנן</button>
         <span class="description">סה"כ <?php echo (int) $total; ?> לקוחות</span>
     </form>
 
-    <table class="wp-list-table widefat fixed striped">
+    <table class="wp-list-table widefat striped">
         <thead><tr>
-            <th>שם</th><th>טלפון</th><th>סטטוס</th><th>דיוור</th><th>הזמנות</th><th>סה"כ קניות</th><th>הזמנה אחרונה</th>
+            <th class="column-primary">שם</th><th>טלפון</th><th>סטטוס</th><th>דיוור</th><th>הזמנות</th><th>סה"כ קניות</th><th>הזמנה אחרונה</th>
         </tr></thead>
         <tbody>
         <?php if (!$rows): ?>
-            <tr><td colspan="7">אין לקוחות עדיין.</td></tr>
+            <tr class="no-items"><td colspan="7">אין לקוחות עדיין.</td></tr>
         <?php else: foreach ($rows as $r): ?>
             <tr>
-                <td><?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name'])); ?></td>
-                <td dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
-                <td><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></td>
-                <td><?php echo $r['marketing_consent'] ? '✔' : '—'; ?></td>
-                <td><?php echo (int) $r['orders_count']; ?></td>
+                <td class="column-primary" data-colname="שם">
+                    <?php echo esc_html(trim($r['first_name'] . ' ' . $r['last_name']) ?: '—'); ?>
+                    <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
+                </td>
+                <td data-colname="טלפון" dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
+                <td data-colname="סטטוס"><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></td>
+                <td data-colname="דיוור"><?php echo $r['marketing_consent'] ? '✔' : '—'; ?></td>
+                <td data-colname="הזמנות"><?php echo (int) $r['orders_count']; ?></td>
                 <?php // wc_price מחזיר HTML (span/bdi + סמל מטבע) — esc_html היה מדפיס את התגיות כטקסט ?>
-                <td><?php echo wp_kses_post(wc_price($r['total_spent'])); ?></td>
-                <td><?php echo $r['last_order_at'] ? esc_html(mysql2date('d/m/y', $r['last_order_at'])) : '—'; ?></td>
+                <td data-colname="סה&quot;כ קניות"><?php echo wp_kses_post(wc_price($r['total_spent'])); ?></td>
+                <td data-colname="הזמנה אחרונה"><?php echo $r['last_order_at'] ? esc_html(mysql2date('d/m/y', $r['last_order_at'])) : '—'; ?></td>
             </tr>
         <?php endforeach; endif; ?>
         </tbody>

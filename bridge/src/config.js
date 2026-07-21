@@ -7,6 +7,10 @@ const local = {
   PORT: Number(process.env.PORT || 3200),
   POLL_MS: Number(process.env.POLL_MS || 30000),
   WORKER_ID: process.env.WORKER_ID || 'pc-home',
+  // אימות לדשבורד — נדרש רק כשנחשפים דרך מנהרה (ngrok וכו').
+  // בלי זה כל מי שמגיע לכתובת יכול לשלוח הודעות בשם החנות ולנתק את החשבון.
+  DASH_USER: process.env.DASH_USER || 'admin',
+  DASH_PASS: process.env.DASH_PASS || '',
 };
 
 // config מרוחק מגיע מתשובת ה-heartbeat; עד אז — ברירות מחדל בטוחות (שמרניות)

@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const express = require('express');
 const { local, state } = require('../config');
 const pacer = require('../pacer');
@@ -7,9 +8,60 @@ const breaker = require('../breaker');
 const wp = require('../wpclient');
 
 // דף סטטוס מקומי — 127.0.0.1 בלבד. WP לא יכול להגיע ל-PC, אז יש דף מקומי לפעולות.
+// השוואה עמידה ל-timing attacks (אורכים שונים -> false בלי לדלוף מידע)
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+/**
+ * הדשבורד מאזין על 127.0.0.1 בלבד, ולכן מקומית הוא בטוח בלי סיסמה.
+ * ברגע שחושפים אותו החוצה (ngrok וכו') הבקשות עדיין מגיעות מ-127.0.0.1 —
+ * המנהרה רצה על אותו מחשב — אז זיהוי לפי IP לא יעזור. לכן מזהים לפי הכותרות
+ * ש-ngrok/פרוקסי מוסיפים, ודורשים אימות. נכשל-סגור: אם אין סיסמה מוגדרת,
+ * בקשה שהגיעה דרך מנהרה נחסמת לגמרי במקום להיחשף בלי הגנה.
+ * חשוב: ה-API הזה יכול לשלוח הודעות בשם החנות, לנתק את החשבון ולחשוף
+ * מספרי לקוחות — חשיפה לא מאובטחת שלו היא בעיה אמיתית, לא תיאורטית.
+ */
+function guard(req, res, next) {
+  const tunneled = !!(req.headers['x-forwarded-for'] || req.headers['x-forwarded-host'] || req.headers['ngrok-skip-browser-warning']);
+
+  // גישה מקומית נשארת ללא חיכוך: מי שיש לו גישה למחשב יכול ממילא לקרוא את .env,
+  // אז סיסמה כאן לא מוסיפה הגנה אמיתית — רק טרחה בכל פתיחה של הדשבורד.
+  if (!tunneled) {
+    return next();
+  }
+
+  if (!local.DASH_PASS) {
+    return res.status(403).type('html').send(
+      '<meta charset="utf-8"><div style="font-family:sans-serif;direction:rtl;padding:24px;max-width:520px;margin:auto">' +
+      '<h2>הגישה מרחוק חסומה</h2>' +
+      '<p>הדשבורד נחשף דרך מנהרה אבל לא הוגדרה סיסמה, והוא מאפשר לשלוח הודעות בשם החנות ולנתק את חשבון הוואטסאפ.</p>' +
+      '<p>כדי לאפשר גישה מרחוק, הוסף ל-<code>bridge/.env</code>:<br><code>DASH_PASS=סיסמה-חזקה</code><br>ואז הפעל מחדש את הגשר.</p>' +
+      '</div>'
+    );
+  }
+
+  const header = req.headers.authorization || '';
+  if (header.startsWith('Basic ')) {
+    const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    const user = decoded.slice(0, idx);
+    const pass = decoded.slice(idx + 1);
+    if (safeEqual(user, local.DASH_USER) && safeEqual(pass, local.DASH_PASS)) {
+      return next();
+    }
+  }
+  res.set('WWW-Authenticate', 'Basic realm="WA Store Notify", charset="UTF-8"');
+  return res.status(401).send('נדרש אימות');
+}
+
 function start(sender) {
   const app = express();
   app.use(express.json());
+  app.use(guard);
 
   const html = fs.readFileSync(path.join(__dirname, 'status.html'), 'utf8');
 
