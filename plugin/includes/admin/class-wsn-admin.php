@@ -184,7 +184,7 @@ class WSN_Admin
                  'new_item' => 'מוצר חלופי', 'store_name' => get_bloginfo('name')])
             : 'הודעת בדיקה מ-WA Store Notify ✔';
         $id = WSN_Outbox::enqueue([
-            'kind' => 'test', 'priority' => -10, 'phone' => $phone, 'body' => $body,
+            'kind' => 'test', 'priority' => WSN_Outbox::PRIORITY_FORCED, 'phone' => $phone, 'body' => $body,
             'event_key' => 'test-' . time() . '-' . wp_rand(1000, 9999),
         ]);
         if (!$id) {

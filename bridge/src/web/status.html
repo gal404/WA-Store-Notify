@@ -69,16 +69,22 @@ function fmtWhen(s) {
   return sameDay ? hm : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) + ' ' + hm;
 }
 
-// "למה זה מחכה" — לפי הכללים בפועל (rules) והשימוש הנוכחי בתקרות (counters), לא רק scheduled_at
-function whyWaiting(item, rules, counters, quiet) {
+// "למה זה מחכה" — לפי הכללים בפועל (rules), התקרות (counters) ומצב ההשהיה, לא רק scheduled_at
+function whyWaiting(item, rules, counters, quiet, paused) {
   if (item.status === 'claimed') return '<span class="good">בטיפול על ידי הגשר עכשיו…</span>';
   const tr = (rules && rules.transactional) || {};
+  const forced = Number(item.priority) <= -10;
+  // השהיה כללית עוצרת הכול חוץ מהודעות שנדחפו ידנית ("שלח מיידית"/"שלח לי לבדיקה")
+  if (paused && !forced) {
+    return '<span class="bad">השליחה מושהית — לחץ "שלח מיידית" ביומן כדי לדחוף הודעה זו</span>';
+  }
   const now = new Date();
   const sch = item.scheduled_at ? new Date(item.scheduled_at.replace(' ', 'T')) : null;
   if (sch && sch.getTime() > now.getTime()) {
     return 'מתוזמן ל-' + fmtWhen(item.scheduled_at) + (item.attempts > 0 ? ' (ניסיון חוזר)' : '');
   }
-  if (quiet) return '<span class="warn">שעות שקט — ימתין עד ' + (tr.quiet_to || '08:00') + '</span>';
+  if (quiet && !forced) return '<span class="warn">שעות שקט — ימתין עד ' + (tr.quiet_to || '08:00') + '</span>';
+  if (forced) return '<span class="good">נדחף ידנית — אמור להישלח בסיבוב הבא</span>';
   if (item.kind !== 'test' && (counters.sent_hour || 0) >= (tr.hourly_cap || Infinity)) {
     return '<span class="warn">תקרה שעתית מלאה (' + counters.sent_hour + '/' + tr.hourly_cap + ')</span>';
   }
@@ -101,7 +107,7 @@ function renderQueue(d) {
       '<td>' + item.kind + '</td>' +
       '<td>' + (item.order_id ? '#' + item.order_id : '—') + '</td>' +
       '<td>' + (item.status === 'claimed' ? 'בטיפול' : 'ממתין') + '</td>' +
-      '<td>' + whyWaiting(item, d.rules, d.counters || {}, d.quiet) + '</td>' +
+      '<td>' + whyWaiting(item, d.rules, d.counters || {}, d.quiet, d.paused) + '</td>' +
       '</tr>';
   });
   html += '</tbody></table>';

@@ -3,6 +3,13 @@ defined('ABSPATH') || exit;
 
 class WSN_Outbox
 {
+    /**
+     * עדיפות שמסמנת "המנהל דחף את ההודעה הזו במפורש" — נקבעת רק בלחיצה ידנית
+     * ("שלח מיידית" ביומן, "שלח לי לבדיקה" בתבניות). הודעות כאלה עוקפות השהיה
+     * כללית, כי ההשהיה נועדה לעצור שליחה אוטומטית — לא פעולה שהמנהל ביקש עכשיו.
+     */
+    const PRIORITY_FORCED = -10;
+
     public static function table(): string
     {
         global $wpdb;
@@ -73,9 +80,15 @@ class WSN_Outbox
              WHERE status='queued' AND expires_at IS NOT NULL AND expires_at < %s", $now
         ));
 
-        if ((int) WSN_Settings::get('paused') || !$kinds || $max < 1) {
+        if (!$kinds || $max < 1) {
             return [];
         }
+
+        // בהשהיה כללית עדיין משחררים הודעות שהמנהל דחף במפורש (PRIORITY_FORCED) —
+        // אחרת "שלח מיידית" נראה כאילו עבד אבל ההודעה נתקעת בתור בלי הסבר.
+        $forced_only = (int) WSN_Settings::get('paused')
+            ? ' AND priority <= ' . (int) self::PRIORITY_FORCED
+            : '';
 
         // 3. תביעה אטומית — UPDATE עם ORDER BY+LIMIT על טבלה אחת
         $token = wp_generate_uuid4();
@@ -83,7 +96,7 @@ class WSN_Outbox
         $params = array_merge([$token, $now], $kinds, [$now, min($max, 10)]);
         $wpdb->query($wpdb->prepare(
             "UPDATE $t SET status='claimed', claim_token=%s, claim_expires_at=DATE_ADD(%s, INTERVAL 10 MINUTE)
-             WHERE status='queued' AND kind IN ($kind_ph) AND scheduled_at <= %s
+             WHERE status='queued' AND kind IN ($kind_ph) AND scheduled_at <= %s $forced_only
              ORDER BY priority ASC, id ASC LIMIT %d", $params
         ));
 
@@ -192,7 +205,7 @@ class WSN_Outbox
         global $wpdb;
         $ph = implode(',', array_fill(0, count($ids), '%d'));
         return (int) $wpdb->query($wpdb->prepare(
-            "UPDATE " . self::table() . " SET scheduled_at=%s, priority=-10
+            "UPDATE " . self::table() . " SET scheduled_at=%s, priority=" . (int) self::PRIORITY_FORCED . "
              WHERE status='queued' AND id IN ($ph)",
             array_merge([current_time('mysql')], $ids)
         ));
@@ -203,7 +216,7 @@ class WSN_Outbox
     {
         global $wpdb;
         return (array) $wpdb->get_results($wpdb->prepare(
-            "SELECT id, kind, phone_e164, status, attempts, order_id, scheduled_at, created_at
+            "SELECT id, kind, priority, phone_e164, status, attempts, order_id, scheduled_at, created_at
              FROM " . self::table() . "
              WHERE status IN ('queued','claimed')
              ORDER BY priority ASC, id ASC

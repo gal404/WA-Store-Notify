@@ -68,9 +68,17 @@ async function loop() {
   const st = sender.getState();
   if (st.state !== 'ready') { await sleep(15000); return; }
   if (breaker.isOpen()) { await sleep(15000); return; }
-  if (state.commands.pause) { await sleep(15000); return; }
 
-  const kinds = pacer.allowedKinds();
+  // בהשהיה כללית ממשיכים למשוך בכוונה — ה-claim בצד WP מחזיר אז רק הודעות
+  // שהמנהל דחף ידנית ("שלח מיידית"/"שלח לי לבדיקה"). בלי זה הכפתורים האלה
+  // נראים כאילו עבדו אבל ההודעה נתקעת בתור בלי שום סימן למה.
+  const paused = !!state.commands.pause;
+
+  // בהשהיה מתעלמים מ-caps/שעות שקט: ממילא יגיעו רק הודעות שנדחפו ידנית,
+  // וכל הסוגים צריכים להיות זמינים כדי שהשרת יוכל להחזיר אותן.
+  const kinds = paused
+    ? ['status', 'item_change', 'free', 'test', 'campaign']
+    : pacer.allowedKinds();
   if (!kinds.length) { await sleep(30000); return; }
 
   let batch = [];
@@ -89,8 +97,10 @@ async function loop() {
   }
 
   for (const msg of batch) {
-    // בדיקה חוזרת של caps/שעה לפני כל שליחה (batch עלול להתמשך)
-    if (breaker.isOpen() || state.commands.pause || !pacer.allowedKinds().includes(msg.kind)) {
+    if (breaker.isOpen()) break;
+    // בדיקה חוזרת של caps/שעות שקט לפני כל שליחה (batch עלול להתמשך) — מדלגים
+    // עליה כשמושהים, כי אז כל מה שהתקבל הוא הודעה שהמנהל דחף ידנית ומצפה שתצא.
+    if (!paused && (state.commands.pause || !pacer.allowedKinds().includes(msg.kind))) {
       break;
     }
     const report = await processOne(msg);
