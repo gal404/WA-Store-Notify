@@ -33,6 +33,9 @@ class WSN_Rest
         register_rest_route(self::NS, '/queue', [
             'methods' => 'GET', 'callback' => [__CLASS__, 'queue'], 'permission_callback' => $perm,
         ]);
+        register_rest_route(self::NS, '/history', [
+            'methods' => 'GET', 'callback' => [__CLASS__, 'history'], 'permission_callback' => $perm,
+        ]);
     }
 
     public static function check_auth(WP_REST_Request $req)
@@ -78,6 +81,17 @@ class WSN_Rest
             'items' => WSN_Outbox::list_pending($limit),
             'counts' => WSN_Outbox::counts(),
         ]);
+    }
+
+    // קריאה בלבד — היסטוריית הודעות מדפדפת לדשבורד המקומי של הגשר
+    public static function history(WP_REST_Request $req): WP_REST_Response
+    {
+        $page = (int) ($req->get_param('page') ?? 1);
+        $per  = (int) ($req->get_param('per') ?? 10);
+        return new WP_REST_Response(
+            ['ok' => true, 'server_time' => current_time('mysql')]
+            + WSN_Outbox::list_history($page, $per)
+        );
     }
 
     public static function claim(WP_REST_Request $req): WP_REST_Response

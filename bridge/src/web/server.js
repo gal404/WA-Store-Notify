@@ -55,6 +55,25 @@ function start(sender) {
     }
   });
 
+  // היסטוריית הודעות מדפדפת — נקרא בנפרד מ-/api/status כדי שרענון הסטטוס
+  // האוטומטי לא יקפיץ את המשתמש בחזרה לעמוד הראשון בזמן שהוא מדפדף.
+  app.get('/api/history', async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const per = Math.min(50, Math.max(1, parseInt(req.query.per, 10) || 10));
+    try {
+      const data = await wp.history(page, per);
+      // wpclient מחזיר null כשהתשובה אינה JSON (למשל דף שגיאה/תחזוקה עם קוד 200).
+      // בלי הבדיקה הזו היינו מחזירים {ok:true} ריק, והדשבורד היה מציג "אין היסטוריה"
+      // במקום לומר שהקריאה נכשלה — כלומר משקר למשתמש שאין הודעות.
+      if (!data || !Array.isArray(data.items)) {
+        return res.status(502).json({ ok: false, error: 'תשובה לא תקינה מ-WP (ייתכן שהתוסף לא מעודכן לגרסה שתומכת בהיסטוריה)' });
+      }
+      res.json({ ok: true, ...data });
+    } catch (e) {
+      res.status(502).json({ ok: false, error: e.message });
+    }
+  });
+
   // אבחון: ההודעה האחרונה בצ'אט — לבדוק אם הודעה שדווחה כ'נכשלה' בעצם נמסרה
   app.get('/api/recent-messages', async (req, res) => {
     const phone = String(req.query.phone || '').replace(/\D/g, '');

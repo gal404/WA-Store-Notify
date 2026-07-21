@@ -65,7 +65,8 @@ $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid
                 <td><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></td>
                 <td><?php echo $r['marketing_consent'] ? '✔' : '—'; ?></td>
                 <td><?php echo (int) $r['orders_count']; ?></td>
-                <td><?php echo esc_html(wc_price($r['total_spent'])); ?></td>
+                <?php // wc_price מחזיר HTML (span/bdi + סמל מטבע) — esc_html היה מדפיס את התגיות כטקסט ?>
+                <td><?php echo wp_kses_post(wc_price($r['total_spent'])); ?></td>
                 <td><?php echo $r['last_order_at'] ? esc_html(mysql2date('d/m/y', $r['last_order_at'])) : '—'; ?></td>
             </tr>
         <?php endforeach; endif; ?>

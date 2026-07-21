@@ -29,6 +29,13 @@
   .warn { color: #a9711a; }
   .field-row { display: flex; gap: 8px; }
   .field-row input:first-child { max-width: 180px; }
+  .pager { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .pager button { margin-top: 0; padding: 7px 14px; font-size: 14px; }
+  .pager .pageinfo { color: #6b7a80; font-size: 13px; }
+  .st-sent { color: #007a3d; font-weight: 600; }
+  .st-failed { color: #b3261e; font-weight: 600; }
+  .st-cancelled, .st-expired { color: #6b7a80; }
+  .tbl-scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -43,6 +50,11 @@
   <div class="card">
     <b>תור הודעות ממתינות</b>
     <div id="queueWrap"><p class="hint">טוען…</p></div>
+  </div>
+  <div class="card">
+    <b>היסטוריית הודעות</b>
+    <div id="historyWrap"><p class="hint">טוען…</p></div>
+    <div class="pager" id="historyPager"></div>
   </div>
   <div class="card">
     <b>שליחה מיידית מהגשר</b>
@@ -114,6 +126,100 @@ function renderQueue(d) {
   wrap.innerHTML = html;
 }
 
+// ---- היסטוריית הודעות (מדפדפת, 10 בעמוד) ----
+var historyPage = 1;
+var historyLoading = false;
+var historyError = false;
+var HISTORY_LABELS = { sent: 'נשלח', failed: 'נכשל', cancelled: 'בוטל', expired: 'פג' };
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// מצייר ניווט "התאוששות" אחרי כשל — קריטי כי כפתורי הקודם/הבא הם דרך הכניסה
+// היחידה של המשתמש ל-loadHistory. בלי זה, כשל בעמוד 2+ היה משאיר את הכרטיס
+// תקוע לצמיתות (הרענון האוטומטי חוזר רק לעמוד 1) עד רענון מלא של הדפדפן.
+function renderHistoryRecovery(pager, failedPage) {
+  pager.innerHTML =
+    '<button class="ghost" id="hRetry">נסה שוב</button>' +
+    (failedPage > 1 ? '<button class="ghost" id="hFirst">חזרה לעמוד הראשון</button>' : '');
+  var retry = document.getElementById('hRetry');
+  var first = document.getElementById('hFirst');
+  if (retry) retry.addEventListener('click', function () { loadHistory(failedPage); });
+  if (first) first.addEventListener('click', function () { loadHistory(1); });
+}
+
+async function loadHistory(page) {
+  if (historyLoading) return;
+  historyLoading = true;
+  var wrap = document.getElementById('historyWrap');
+  var pager = document.getElementById('historyPager');
+  var d;
+  try {
+    d = await (await fetch('/api/history?page=' + encodeURIComponent(page) + '&per=10')).json();
+  } catch (e) {
+    historyLoading = false;
+    historyError = true;
+    historyPage = page;
+    wrap.innerHTML = '<p class="bad">אין תקשורת עם הגשר</p>';
+    renderHistoryRecovery(pager, page);
+    return;
+  }
+  historyLoading = false;
+
+  if (!d.ok) {
+    historyError = true;
+    historyPage = page;
+    wrap.innerHTML = '<p class="bad">לא ניתן לטעון היסטוריה' + (d.error ? ': ' + esc(d.error) : '') + '</p>';
+    renderHistoryRecovery(pager, page);
+    return;
+  }
+
+  historyError = false;
+  historyPage = d.page || 1;
+  var items = d.items || [];
+  if (!items.length) {
+    wrap.innerHTML = '<p class="hint">אין עדיין הודעות בהיסטוריה.</p>';
+    // אם איכשהו נחתנו על עמוד ריק מעבר לראשון — משאירים דרך חזרה
+    if (historyPage > 1) { renderHistoryRecovery(pager, historyPage); } else { pager.innerHTML = ''; }
+    return;
+  }
+
+  var html = '<div class="tbl-scroll"><table><thead><tr>' +
+    '<th>מתי</th><th>טלפון</th><th>סוג</th><th>הזמנה</th><th>סטטוס</th>' +
+    '</tr></thead><tbody>';
+  items.forEach(function (it) {
+    var label = HISTORY_LABELS[it.status] || it.status;
+    var cls = 'st-' + it.status;
+    var err = it.last_error
+      ? '<br><small class="bad" title="' + esc(it.last_error) + '">' +
+        esc(it.last_error.length > 40 ? it.last_error.slice(0, 40) + '…' : it.last_error) + '</small>'
+      : '';
+    html += '<tr>' +
+      '<td class="when">' + fmtWhen(it.sent_at || it.created_at) + '</td>' +
+      '<td class="phone">' + esc(it.phone_e164) + '</td>' +
+      '<td>' + esc(it.kind) + '</td>' +
+      '<td>' + (it.order_id ? '#' + esc(it.order_id) : '—') + '</td>' +
+      '<td><span class="' + cls + '">' + esc(label) + '</span>' + err + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+
+  var first = (d.page - 1) * d.per + 1;
+  var last = Math.min(d.page * d.per, d.total);
+  pager.innerHTML =
+    '<button class="ghost" id="hPrev"' + (d.page <= 1 ? ' disabled' : '') + '>‹ הקודם</button>' +
+    '<span class="pageinfo">' + first + '–' + last + ' מתוך ' + d.total + ' · עמוד ' + d.page + ' מתוך ' + d.pages + '</span>' +
+    '<button class="ghost" id="hNext"' + (d.page >= d.pages ? ' disabled' : '') + '>הבא ›</button>';
+  var prev = document.getElementById('hPrev');
+  var next = document.getElementById('hNext');
+  if (prev) prev.addEventListener('click', function () { loadHistory(historyPage - 1); });
+  if (next) next.addEventListener('click', function () { loadHistory(historyPage + 1); });
+}
+
 async function refresh() {
   let d;
   try { d = await (await fetch('/api/status')).json(); }
@@ -152,6 +258,12 @@ async function refresh() {
   document.getElementById('flags').innerHTML = flags.join(' · ');
 
   renderQueue(d);
+
+  // מרעננים היסטוריה רק כשהמשתמש בעמוד הראשון — אחרת נקפיץ אותו מהעמוד
+  // שהוא קורא בו כרגע באמצע דפדוף. חריג: אם הטעינה האחרונה נכשלה, מנסים שוב
+  // את אותו עמוד, כדי שהכרטיס יתאושש לבד כשה-WP חוזר.
+  if (historyError) { loadHistory(historyPage); }
+  else if (historyPage === 1) { loadHistory(1); }
 }
 
 async function pair() {
@@ -198,6 +310,7 @@ async function logout() {
 }
 
 refresh();
+loadHistory(1);
 </script>
 </body>
 </html>

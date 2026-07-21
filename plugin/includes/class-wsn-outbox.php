@@ -211,6 +211,38 @@ class WSN_Outbox
         ));
     }
 
+    /** סטטוסים "סגורים" — הודעות שכבר טופלו ולא ימתינו יותר (היסטוריה) */
+    const DONE_STATUSES = ['sent', 'failed', 'cancelled', 'expired'];
+
+    /**
+     * היסטוריית הודעות שכבר טופלו, מדפדפת — לתצוגה בדשבורד הגשר.
+     * מחזיר גם total/pages כדי שהדשבורד יוכל לצייר ניווט עמודים בלי קריאה נוספת.
+     */
+    public static function list_history(int $page = 1, int $per = 10): array
+    {
+        global $wpdb;
+        $per = min(50, max(1, $per));
+        $page = max(1, $page);
+        $t = self::table();
+        // רשימה קבועה בקוד (לא קלט משתמש) — בטוח לשלב ישירות בשאילתה
+        $done = "'" . implode("','", self::DONE_STATUSES) . "'";
+
+        $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE status IN ($done)");
+        $pages = $total > 0 ? (int) ceil($total / $per) : 1;
+        // עמוד מעבר לסוף (למשל אחרי ניקוי יומן) — מחזירים את האחרון במקום רשימה ריקה
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $per;
+
+        $items = (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, kind, phone_e164, status, attempts, order_id, last_error, sent_at, created_at
+             FROM $t WHERE status IN ($done)
+             ORDER BY id DESC LIMIT %d OFFSET %d",
+            $per, $offset
+        ), ARRAY_A);
+
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'per' => $per, 'pages' => $pages];
+    }
+
     /** רשימת הודעות ממתינות/בטיפול לתצוגה בדשבורד הגשר — קריאה בלבד, לא תובעת */
     public static function list_pending(int $limit = 20): array
     {
