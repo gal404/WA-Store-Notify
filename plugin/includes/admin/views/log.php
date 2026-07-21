@@ -31,21 +31,33 @@ $labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נ�
     'failed' => 'נכשל', 'cancelled' => 'בוטל', 'expired' => 'פג'];
 $cancellable = ['queued', 'claimed'];
 
-// שליפת ההזמנות של העמוד במכה אחת (ולא wc_get_order בכל שורה — 50 טעינות לעמוד)
+// שליפת ההזמנות שמוצגות בעמוד. במכוון wc_get_order לכל מזהה ולא שאילתה
+// מרוכזת עם 'include': אם ארגומנט הסינון לא נתמך הוא פשוט מתעלם, ואז
+// limit=-1 מושך את *כל* ההזמנות בחנות ומפיל את העמוד. כאן זה חסום לפי
+// גודל העמוד (50 לכל היותר).
 $order_ids = array_values(array_unique(array_filter(array_map(
     static fn($r) => (int) $r['order_id'],
     (array) $rows
 ))));
 $orders = [];
-if ($order_ids && function_exists('wc_get_orders')) {
-    foreach (wc_get_orders(['include' => $order_ids, 'limit' => -1]) as $o) {
-        $orders[$o->get_id()] = [
-            'number' => $o->get_order_number(),
-            'name'   => trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name()),
-            'status' => $o->get_status(),
-            'label'  => wc_get_order_status_name($o->get_status()),
-        ];
+// העשרה בלבד — אם משהו כאן נכשל, העמוד עדיין צריך להיטען עם שאר המידע
+// ולא ליפול ל"שגיאה קריטית".
+try {
+    if (function_exists('wc_get_order')) {
+        foreach ($order_ids as $oid) {
+            $o = wc_get_order($oid);
+            if ($o instanceof WC_Order) {
+                $orders[$oid] = [
+                    'number' => $o->get_order_number(),
+                    'name'   => trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name()),
+                    'status' => $o->get_status(),
+                    'label'  => wc_get_order_status_name($o->get_status()),
+                ];
+            }
+        }
     }
+} catch (\Throwable $e) {
+    $orders = [];
 }
 ?>
 <div class="wrap wsn" dir="rtl">

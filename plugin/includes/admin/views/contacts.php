@@ -29,20 +29,30 @@ $rows = $wpdb->get_results($wpdb->prepare(
 
 $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid' => 'לא תקין'];
 
-// ההזמנות האחרונות של העמוד במכה אחת, כדי להציג מספר+סטטוס ולא רק תאריך
+// ההזמנות האחרונות של הלקוחות בעמוד. wc_get_order לכל מזהה בנפרד ולא
+// שאילתה מרוכזת עם 'include' — ארגומנט שלא נתמך מתעלם בשקט, ואז limit=-1
+// מושך את כל ההזמנות בחנות ומפיל את העמוד. כאן חסום לגודל העמוד.
 $last_order_ids = array_values(array_unique(array_filter(array_map(
-    static fn($r) => (int) $r['last_order_id'],
+    static fn($r) => (int) ($r['last_order_id'] ?? 0),
     (array) $rows
 ))));
 $last_orders = [];
-if ($last_order_ids && function_exists('wc_get_orders')) {
-    foreach (wc_get_orders(['include' => $last_order_ids, 'limit' => -1]) as $o) {
-        $last_orders[$o->get_id()] = [
-            'number' => $o->get_order_number(),
-            'status' => $o->get_status(),
-            'label'  => wc_get_order_status_name($o->get_status()),
-        ];
+// העשרה בלבד — כשל כאן לא אמור להפיל את כל המסך
+try {
+    if (function_exists('wc_get_order')) {
+        foreach ($last_order_ids as $oid) {
+            $o = wc_get_order($oid);
+            if ($o instanceof WC_Order) {
+                $last_orders[$oid] = [
+                    'number' => $o->get_order_number(),
+                    'status' => $o->get_status(),
+                    'label'  => wc_get_order_status_name($o->get_status()),
+                ];
+            }
+        }
     }
+} catch (\Throwable $e) {
+    $last_orders = [];
 }
 ?>
 <div class="wrap wsn" dir="rtl">
