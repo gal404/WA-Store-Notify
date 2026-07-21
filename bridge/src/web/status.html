@@ -37,6 +37,22 @@
   .st-cancelled, .st-expired { color: #6b7a80; }
   .tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+  /* כרטיס הודעה בתור — מרכז את כל מה שצריך לדעת על השורה במבט אחד */
+  .qcard { border: 1px solid #e8edec; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: #fbfdfc; }
+  .qcard-head { font-size: 14px; margin-bottom: 2px; }
+  .q-order { color: #0b7a6e; font-weight: 700; text-decoration: none; }
+  .qcard-phone { color: #6b7a80; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .qcard-body {
+      margin: 6px 0; padding: 6px 8px; background: #fff;
+      border: 1px solid #eef1f2; border-radius: 7px;
+      font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere;
+      max-height: 4.6em; overflow: hidden;
+  }
+  .qcard-meta { font-size: 12px; color: #6b7a80; margin-top: 4px; }
+  .qcard-when { font-size: 12.5px; margin-top: 5px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .pill-order { background: #e6f2f0; color: #075e55; }
+
   @media (max-width: 600px) {
     header { font-size: 16px; padding: 12px 14px; }
     main { padding: 12px 10px; }
@@ -129,18 +145,34 @@ function renderQueue(d) {
   if (!q || q.error) { wrap.innerHTML = '<p class="bad">לא ניתן לטעון את התור' + (q && q.error ? ': ' + q.error : '') + '</p>'; return; }
   const items = q.items || [];
   if (!items.length) { wrap.innerHTML = '<p class="hint">התור ריק כרגע.</p>'; return; }
-  let html = '<div class="tbl-scroll"><table><thead><tr><th>טלפון</th><th>סוג</th><th>הזמנה</th><th>סטטוס</th><th>מתי יישלח</th></tr></thead><tbody>';
+  // כרטיס לכל הודעה — יותר קריא מטבלה צרה, וגם מכיל הרבה יותר נתונים
+  let html = '';
   items.forEach(function (item) {
-    // whyWaiting מחזיר HTML מכוון (span עם מחלקה) — שאר השדות עוברים escaping
-    html += '<tr>' +
-      '<td class="phone">' + esc(item.phone_e164) + '</td>' +
-      '<td>' + esc(item.kind) + '</td>' +
-      '<td>' + (item.order_id ? '#' + esc(item.order_id) : '—') + '</td>' +
-      '<td>' + (item.status === 'claimed' ? 'בטיפול' : 'ממתין') + '</td>' +
-      '<td>' + whyWaiting(item, d.rules, d.counters || {}, d.quiet, d.paused) + '</td>' +
-      '</tr>';
+    const o = item.order, c = item.customer;
+    const head = o
+      ? '<a class="q-order" href="' + esc(o.edit) + '" target="_blank" rel="noopener">#' + esc(o.number) + '</a>' +
+        (o.name ? ' <b>' + esc(o.name) + '</b>' : '') +
+        ' <span class="pill pill-order">' + esc(o.label) + '</span>'
+      : '<b>' + esc(item.kind === 'test' ? 'הודעת בדיקה' : 'ללא הזמנה') + '</b>';
+
+    const meta = [];
+    if (o && o.total) meta.push('סכום: ' + esc(o.total));
+    if (c) {
+      if (c.orders_count) meta.push('הזמנות: ' + esc(c.orders_count));
+      if (c.total_spent) meta.push('סה"כ קניות: ' + esc(c.total_spent));
+      if (c.status && c.status !== 'active') meta.push('<span class="bad">מועדון: ' + esc(c.status) + '</span>');
+      meta.push('דיוור: ' + (c.consent ? '✔' : '—'));
+    }
+    if (item.attempts > 0) meta.push('<span class="warn">ניסיון ' + esc(item.attempts) + '</span>');
+
+    html += '<div class="qcard">' +
+      '<div class="qcard-head">' + head + '</div>' +
+      '<div class="qcard-phone" dir="ltr">' + esc(item.phone_display || item.phone_e164) + '</div>' +
+      (item.body_preview ? '<div class="qcard-body">' + esc(item.body_preview) + '</div>' : '') +
+      (meta.length ? '<div class="qcard-meta">' + meta.join(' · ') + '</div>' : '') +
+      '<div class="qcard-when">' + whyWaiting(item, d.rules, d.counters || {}, d.quiet, d.paused) + '</div>' +
+      '</div>';
   });
-  html += '</tbody></table></div>';
   wrap.innerHTML = html;
 }
 

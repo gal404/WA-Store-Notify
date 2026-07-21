@@ -24,6 +24,8 @@ class WSN_Order_Items
 
         add_action('wp_ajax_wsn_pending_item_events', [__CLASS__, 'ajax_pending_events']);
         add_action('wp_ajax_wsn_save_item_reasons', [__CLASS__, 'ajax_save_reasons']);
+        add_action('wp_ajax_wsn_compose_changes', [__CLASS__, 'ajax_compose_changes']);
+        add_action('wp_ajax_wsn_queue_changes', [__CLASS__, 'ajax_queue_changes']);
     }
 
     /** מצב הפריטים הנוכחי כפי שהוא בהזמנה: item_id => פרטים */
@@ -178,6 +180,102 @@ class WSN_Order_Items
         wp_send_json_success(['events' => $out]);
     }
 
+    /** קורא אירועים לפי מזהים, ורק כאלה ששייכים להזמנה הזו */
+    private static function events_for(int $order_id, array $ids): array
+    {
+        $out = [];
+        foreach (array_map('intval', $ids) as $id) {
+            $e = WSN_Item_Events::get($id);
+            if ($e && (int) $e['order_id'] === $order_id) {
+                $out[] = $e;
+            }
+        }
+        return $out;
+    }
+
+    /** בונה את נוסח ההודעה (או כמה נוסחים) בלי לשלוח — לתצוגה מקדימה */
+    public static function ajax_compose_changes(): void
+    {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        check_ajax_referer('wsn_item_events_' . $order_id);
+        if (!current_user_can('manage_wa_notify')) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $order = wc_get_order($order_id);
+        if (!$order instanceof WC_Order) {
+            wp_send_json_error('הזמנה לא נמצאה');
+        }
+        $events = self::events_for($order_id, (array) ($_POST['event_ids'] ?? []));
+        if (!$events) {
+            wp_send_json_error('לא נבחרו שינויים');
+        }
+        $separate = ($_POST['mode'] ?? 'combined') === 'separate';
+
+        $out = [];
+        if ($separate) {
+            foreach ($events as $e) {
+                $body = WSN_Change_Composer::compose($order, [$e]);
+                if (trim($body) !== '') {
+                    $out[] = ['ids' => [(int) $e['id']], 'body' => $body];
+                }
+            }
+        } else {
+            $body = WSN_Change_Composer::compose($order, $events);
+            if (trim($body) !== '') {
+                $out[] = ['ids' => array_map(static fn($e) => (int) $e['id'], $events), 'body' => $body];
+            }
+        }
+        if (!$out) {
+            wp_send_json_error('לא נוצר נוסח — בדוק שהתבניות המתאימות מופעלות במסך התבניות');
+        }
+        wp_send_json_success(['messages' => $out]);
+    }
+
+    /** מכניס לתור את הנוסחים (אחרי שהמנהל אולי ערך אותם) */
+    public static function ajax_queue_changes(): void
+    {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        check_ajax_referer('wsn_item_events_' . $order_id);
+        if (!current_user_can('manage_wa_notify')) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $order = wc_get_order($order_id);
+        if (!$order instanceof WC_Order) {
+            wp_send_json_error('הזמנה לא נמצאה');
+        }
+        $messages = (array) ($_POST['messages'] ?? []);
+        $queued = 0;
+        foreach ($messages as $m) {
+            $ids  = array_map('intval', (array) ($m['ids'] ?? []));
+            $body = sanitize_textarea_field(wp_unslash($m['body'] ?? ''));
+            $events = self::events_for($order_id, $ids);
+            if (!$events || trim($body) === '') {
+                continue;
+            }
+            if (WSN_Change_Composer::queue($order, $events, $body)) {
+                $queued++;
+            }
+            // שמירת הנוסח כתבנית קבועה לסוג הזה (רק כשכל השינויים מאותו סוג —
+            // אחרת לא ברור לאיזה סוג הנוסח שייך)
+            if (!empty($m['save_template'])) {
+                $types = array_unique(array_map(
+                    static fn($e) => WSN_Change_Composer::type_for_event($e['event_type']),
+                    $events
+                ));
+                $target = count($types) === 1 ? reset($types) : 'order_changes';
+                WSN_Change_Composer::save_template(
+                    $target,
+                    WSN_Change_Composer::templatize($body, $order, $events)
+                );
+            }
+        }
+        if (!$queued) {
+            wp_send_json_error('שום הודעה לא נוספה לתור (ייתכן שהלקוח הוסר מרשימת התפוצה או שאין טלפון תקין)');
+        }
+        $order->add_order_note(sprintf('וואטסאפ: %d הודעות על שינויים נוספו לתור', $queued));
+        wp_send_json_success(['queued' => $queued]);
+    }
+
     public static function ajax_save_reasons(): void
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
@@ -187,14 +285,34 @@ class WSN_Order_Items
         }
         $reasons = (array) ($_POST['reasons'] ?? []);
         $saved = 0;
+        $ids = [];
         foreach ($reasons as $event_id => $r) {
             $code = sanitize_key($r['code'] ?? '');
             $text = sanitize_text_field(wp_unslash($r['text'] ?? ''));
             if ($code !== '' && WSN_Item_Events::set_reason((int) $event_id, $code, $text)) {
                 $saved++;
+                $ids[] = (int) $event_id;
             }
         }
-        wp_send_json_success(['saved' => $saved]);
+
+        // שליחה אוטומטית — רק לסוגים שסומנו כאוטומטיים בהגדרות, ורק עכשיו
+        // (אחרי בחירת הסיבה) כדי שההודעה תוכל לכלול אותה.
+        $auto_queued = 0;
+        $order = wc_get_order($order_id);
+        if ($order instanceof WC_Order && $ids) {
+            $auto = [];
+            foreach (self::events_for($order_id, $ids) as $e) {
+                if ((int) $e['notified'] === 0
+                    && WSN_Change_Composer::is_auto(WSN_Change_Composer::type_for_event($e['event_type']))) {
+                    $auto[] = $e;
+                }
+            }
+            if ($auto && WSN_Change_Composer::queue($order, $auto)) {
+                $auto_queued = count($auto);
+                $order->add_order_note('וואטסאפ: הודעה על שינויים נוספה לתור אוטומטית');
+            }
+        }
+        wp_send_json_success(['saved' => $saved, 'auto_queued' => $auto_queued]);
     }
 
     public static function flag_dirty(int $order_id, $items): void
@@ -259,10 +377,43 @@ class WSN_Order_Items
 
         $order_id = $order->get_id();
         $events = WSN_Item_Events::for_order($order_id);
+        $unnotified = WSN_Item_Events::unnotified($order_id);
         ?>
         <div class="wsn wsn-events" dir="rtl"
              data-order-id="<?php echo (int) $order_id; ?>"
              data-nonce="<?php echo esc_attr(wp_create_nonce('wsn_item_events_' . $order_id)); ?>">
+
+            <?php if ($unnotified): ?>
+                <div class="wsn-compose">
+                    <b>שינויים שטרם דווחו ללקוח</b>
+                    <ul class="wsn-compose-list">
+                        <?php foreach ($unnotified as $e): ?>
+                            <li>
+                                <label>
+                                    <input type="checkbox" class="wsn-ev-check" value="<?php echo (int) $e['id']; ?>" checked>
+                                    <?php echo esc_html(WSN_Change_Composer::line($e)); ?>
+                                </label>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <p>
+                        <label><input type="radio" name="wsn_compose_mode" value="combined" checked> הודעה אחת מאוחדת</label>
+                        <label><input type="radio" name="wsn_compose_mode" value="separate"> הודעה נפרדת לכל שינוי</label>
+                    </p>
+                    <p>
+                        <button type="button" class="button wsn-compose-build">בנה הודעה</button>
+                        <span class="wsn-compose-msg description"></span>
+                    </p>
+                    <div class="wsn-compose-preview" hidden>
+                        <p class="description">אפשר לערוך את הנוסח לפני השליחה:</p>
+                        <div class="wsn-compose-bodies"></div>
+                        <p><label><input type="checkbox" class="wsn-save-template"> שמור את הנוסח הזה כנוסח הקבוע לסוג השינוי</label>
+                        <span class="description">שם הלקוח ומספר ההזמנה יוחלפו אוטומטית בשדות, כדי שהנוסח יתאים לכל הזמנה.</span></p>
+                        <button type="button" class="button button-primary wsn-compose-send">הוסף לתור ושלח ללקוח</button>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <?php if (!$events): ?>
                 <p class="description">אין עדיין תנועות. שינוי כמות, הוספה או הסרה של פריט יירשמו כאן אוטומטית.</p>
             <?php else: ?>

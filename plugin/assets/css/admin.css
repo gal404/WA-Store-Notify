@@ -347,3 +347,18 @@
     }
     .wsn .wp-list-table td.column-primary .wsn-pill { margin-top: 3px; }
 }
+
+/* ---------- בניית הודעה מהשינויים בהזמנה ---------- */
+.wsn-compose {
+    background: var(--wsn-accent-soft, #e6f2f0);
+    border: 1px solid var(--wsn-border, #dfe5e3);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+.wsn-compose-list { margin: 8px 0; padding: 0; list-style: none; }
+.wsn-compose-list li { margin: 3px 0; }
+.wsn-compose label { margin-inline-end: 14px; }
+.wsn-compose-body { width: 100%; margin-bottom: 8px; }
+.wsn-modes td { padding: 2px 0 2px 18px; }
+.wsn-modes label { margin-inline-end: 12px; }

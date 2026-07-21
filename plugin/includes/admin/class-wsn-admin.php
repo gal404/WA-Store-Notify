@@ -149,6 +149,10 @@ class WSN_Admin
         $changes['optout_keywords'] = sanitize_textarea_field($in['optout_keywords'] ?? '');
         $changes['item_reasons_removed'] = sanitize_textarea_field($in['item_reasons_removed'] ?? '');
         $changes['item_reasons_added'] = sanitize_textarea_field($in['item_reasons_added'] ?? '');
+        foreach (array_keys(WSN_Change_Composer::types()) as $ct) {
+            $mode = ($in['send_mode_' . $ct] ?? '') === 'auto' ? 'auto' : 'manual';
+            $changes['send_mode_' . $ct] = $mode;
+        }
         $changes['checkout_optin_label'] = sanitize_text_field($in['checkout_optin_label'] ?? '');
         $changes['test_phone'] = sanitize_text_field($in['test_phone'] ?? '');
         $changes['alert_email'] = sanitize_email($in['alert_email'] ?? '');

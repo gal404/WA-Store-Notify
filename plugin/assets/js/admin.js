@@ -173,6 +173,66 @@
             });
         }
         checkPending(); // גם בטעינת העמוד, אם נשארו תנועות בלי סיבה
+
+        // ---- בניית הודעה מהשינויים שנבחרו ----
+        var buildBtn = eventsRoot.querySelector('.wsn-compose-build');
+        if (buildBtn) {
+            var previewBox = eventsRoot.querySelector('.wsn-compose-preview');
+            var bodiesBox = eventsRoot.querySelector('.wsn-compose-bodies');
+            var composeMsg = eventsRoot.querySelector('.wsn-compose-msg');
+
+            function selectedIds() {
+                return Array.prototype.slice
+                    .call(eventsRoot.querySelectorAll('.wsn-ev-check:checked'))
+                    .map(function (c) { return c.value; });
+            }
+
+            buildBtn.addEventListener('click', function () {
+                var ids = selectedIds();
+                if (!ids.length) { composeMsg.textContent = 'לא נבחרו שינויים'; return; }
+                var mode = (eventsRoot.querySelector('input[name=wsn_compose_mode]:checked') || {}).value || 'combined';
+                composeMsg.textContent = 'בונה…';
+                var extra = { mode: mode };
+                ids.forEach(function (id, i) { extra['event_ids[' + i + ']'] = id; });
+                post('wsn_compose_changes', extra).then(function (d) {
+                    if (!d.success) { composeMsg.textContent = 'שגיאה: ' + (d.data || ''); return; }
+                    composeMsg.textContent = '';
+                    bodiesBox.innerHTML = '';
+                    d.data.messages.forEach(function (m, i) {
+                        var ta = document.createElement('textarea');
+                        ta.rows = 4;
+                        ta.dir = 'rtl';
+                        ta.className = 'wsn-compose-body';
+                        ta.value = m.body;
+                        ta.dataset.ids = m.ids.join(',');
+                        bodiesBox.appendChild(ta);
+                    });
+                    previewBox.hidden = false;
+                }).catch(function (e) { composeMsg.textContent = 'שגיאה: ' + e.message; });
+            });
+
+            eventsRoot.querySelector('.wsn-compose-send').addEventListener('click', function () {
+                var btn = this;
+                var areas = eventsRoot.querySelectorAll('.wsn-compose-body');
+                if (!areas.length) { return; }
+                btn.disabled = true;
+                composeMsg.textContent = 'מוסיף לתור…';
+                var saveTpl = eventsRoot.querySelector('.wsn-save-template');
+                var extra = {};
+                areas.forEach(function (ta, i) {
+                    extra['messages[' + i + '][body]'] = ta.value;
+                    if (saveTpl && saveTpl.checked) { extra['messages[' + i + '][save_template]'] = '1'; }
+                    ta.dataset.ids.split(',').forEach(function (id, j) {
+                        extra['messages[' + i + '][ids][' + j + ']'] = id;
+                    });
+                });
+                post('wsn_queue_changes', extra).then(function (d) {
+                    if (!d.success) { composeMsg.textContent = 'שגיאה: ' + (d.data || ''); btn.disabled = false; return; }
+                    composeMsg.textContent = 'נוסף לתור ✔';
+                    location.reload();
+                }).catch(function (e) { composeMsg.textContent = 'שגיאה: ' + e.message; btn.disabled = false; });
+            });
+        }
     }
 
     // חישוב קהל יעד להערכת קמפיין (חי)

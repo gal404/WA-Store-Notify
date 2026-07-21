@@ -75,12 +75,67 @@ class WSN_Rest
     public static function queue(WP_REST_Request $req): WP_REST_Response
     {
         $limit = min(100, max(1, (int) ($req->get_param('limit') ?? 20)));
+        $items = WSN_Outbox::list_pending($limit);
         return new WP_REST_Response([
             'ok' => true,
             'server_time' => current_time('mysql'),
-            'items' => WSN_Outbox::list_pending($limit),
+            'items' => self::enrich($items),
             'counts' => WSN_Outbox::counts(),
         ]);
+    }
+
+    /**
+     * מוסיף לכל שורה בתור את פרטי ההזמנה והלקוח, כדי שהדשבורד של הגשר
+     * יראה את אותו מידע כמו היומן. wc_get_order לכל מזהה (חסום לגודל העמוד)
+     * ולא שאילתה מרוכזת — ארגומנט סינון שלא נתמך היה מושך את כל ההזמנות.
+     */
+    private static function enrich(array $items): array
+    {
+        $contacts = [];
+        foreach ($items as &$it) {
+            $it['phone_display'] = WSN_Phone::to_display($it['phone_e164'] ?? '');
+            $it['body_preview']  = mb_substr((string) ($it['body'] ?? ''), 0, 160);
+            $it['order']         = null;
+            $it['customer']      = null;
+
+            try {
+                $oid = (int) ($it['order_id'] ?? 0);
+                if ($oid && function_exists('wc_get_order')) {
+                    $o = wc_get_order($oid);
+                    if ($o instanceof WC_Order) {
+                        $it['order'] = [
+                            'number' => $o->get_order_number(),
+                            'status' => $o->get_status(),
+                            'label'  => wc_get_order_status_name($o->get_status()),
+                            'total'  => html_entity_decode(wp_strip_all_tags(wc_price($o->get_total()))),
+                            'name'   => trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name()),
+                            'edit'   => admin_url('post.php?post=' . $oid . '&action=edit'),
+                        ];
+                    }
+                }
+                // נתוני מועדון הלקוחות לפי הטלפון
+                $phone = (string) ($it['phone_e164'] ?? '');
+                if ($phone !== '') {
+                    if (!array_key_exists($phone, $contacts)) {
+                        $contacts[$phone] = WSN_Contacts::get_by_phone($phone);
+                    }
+                    $c = $contacts[$phone];
+                    if ($c) {
+                        $it['customer'] = [
+                            'name'         => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
+                            'status'       => $c['status'] ?? '',
+                            'orders_count' => (int) ($c['orders_count'] ?? 0),
+                            'total_spent'  => html_entity_decode(wp_strip_all_tags(wc_price($c['total_spent'] ?? 0))),
+                            'consent'      => (int) ($c['marketing_consent'] ?? 0),
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                // העשרה בלבד — לא מפילים את הדשבורד בגללה
+            }
+        }
+        unset($it);
+        return $items;
     }
 
     // קריאה בלבד — היסטוריית הודעות מדפדפת לדשבורד המקומי של הגשר

@@ -248,7 +248,7 @@ class WSN_Outbox
     {
         global $wpdb;
         return (array) $wpdb->get_results($wpdb->prepare(
-            "SELECT id, kind, priority, phone_e164, status, attempts, order_id, scheduled_at, created_at
+            "SELECT id, kind, priority, phone_e164, body, status, attempts, order_id, scheduled_at, created_at
              FROM " . self::table() . "
              WHERE status IN ('queued','claimed')
              ORDER BY priority ASC, id ASC

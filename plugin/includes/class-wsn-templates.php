@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 class WSN_Templates
 {
     /** מפתחות תבניות שאינן סטטוס הזמנה */
-    const SPECIAL_KEYS = ['item_removed', 'item_replaced', 'optout_confirm'];
+    const SPECIAL_KEYS = ['item_added', 'item_removed', 'qty_changed', 'order_changes', 'item_replaced', 'optout_confirm'];
 
     public static function defaults(): array
     {
@@ -21,6 +21,30 @@ class WSN_Templates
                 'variants' => [
                     "היי {first_name}, הזמנה #{order_number} טופלה ונסגרה. תודה שקנית אצלנו! 🙏",
                     "{first_name} היקר/ה, סיימנו לטפל בהזמנה #{order_number}. נשמח לראותך שוב!",
+                ],
+            ],
+            'item_added' => [
+                'enabled'  => 1,
+                'variants' => [
+                    "היי {first_name}, עודכנה ההזמנה שלך #{order_number} — נוספו הפריטים הבאים:
+{changes}
+נשמח לעזור אם יש שאלות.",
+                ],
+            ],
+            'qty_changed' => [
+                'enabled'  => 1,
+                'variants' => [
+                    "היי {first_name}, עודכנו הכמויות בהזמנה #{order_number}:
+{changes}
+אם משהו לא מתאים — השב לנו כאן.",
+                ],
+            ],
+            'order_changes' => [
+                'enabled'  => 1,
+                'variants' => [
+                    "היי {first_name}, בוצעו עדכונים בהזמנה שלך #{order_number}:
+{changes}
+אם משהו לא מתאים — פשוט השב לנו כאן.",
                 ],
             ],
             'item_removed' => [

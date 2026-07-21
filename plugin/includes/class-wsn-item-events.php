@@ -91,6 +91,43 @@ class WSN_Item_Events
         ), ARRAY_A);
     }
 
+    /** תנועות שטרם נשלחה עליהן הודעה ללקוח */
+    public static function unnotified(int $order_id): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM " . self::table() . "
+             WHERE order_id = %d AND notified = 0
+             ORDER BY id ASC",
+            $order_id
+        ), ARRAY_A);
+    }
+
+    /** סימון תנועות כ"דווחו ללקוח", כדי שלא יישלחו שוב */
+    public static function mark_notified(array $ids): int
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return 0;
+        }
+        global $wpdb;
+        $ph = implode(',', array_fill(0, count($ids), '%d'));
+        return (int) $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::table() . " SET notified = 1 WHERE id IN ($ph)",
+            $ids
+        ));
+    }
+
+    public static function get(int $id): ?array
+    {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM " . self::table() . " WHERE id = %d",
+            $id
+        ), ARRAY_A);
+        return $row ?: null;
+    }
+
     /** כל התנועות של ההזמנה, לתצוגה בעמוד ההזמנה */
     public static function for_order(int $order_id): array
     {

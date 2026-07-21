@@ -26,6 +26,12 @@ class WSN_Order_Hooks
             WSN_Contacts::record_paid_order($order);
         }
 
+        // ביטול הזמנה הוא סוג נפרד בהגדרות; שאר הסטטוסים תחת 'שינוי סטטוס'
+        $change_type = ($new === 'cancelled') ? 'order_cancelled' : 'order_status';
+        if (!WSN_Change_Composer::is_auto($change_type)) {
+            return; // מצב ידני — ההודעה תישלח מעמוד ההזמנה בלחיצה
+        }
+
         $tpl = WSN_Templates::get('wc-' . $new);
         if (!$tpl) {
             return;
