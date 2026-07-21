@@ -58,12 +58,24 @@ $breaker_open = !empty($st['breaker']['open']);
 
         <div class="wsn-card">
             <h2>התור</h2>
-            <ul class="wsn-stats">
-                <li>ממתינות: <b><?php echo (int) $counts['queued']; ?></b></li>
-                <li>בטיפול: <b><?php echo (int) $counts['claimed']; ?></b></li>
-                <li>נשלחו: <b><?php echo (int) $counts['sent']; ?></b></li>
-                <li>נכשלו: <b class="wsn-bad"><?php echo (int) $counts['failed']; ?></b></li>
-                <li>פגו: <b><?php echo (int) $counts['expired']; ?></b></li>
+            <?php
+            // אריחים במקום רשימה: המספר הוא מה שסורקים, אז הוא מקבל את המשקל,
+            // והצבע מקודד מצב (ממתין/נכשל) כדי שמה שדורש תשומת לב יזדקר.
+            $tiles = [
+                ['label' => 'ממתינות', 'value' => $counts['queued'],  'tone' => 'warn'],
+                ['label' => 'בטיפול',  'value' => $counts['claimed'], 'tone' => ''],
+                ['label' => 'נשלחו',   'value' => $counts['sent'],    'tone' => 'ok'],
+                ['label' => 'נכשלו',   'value' => $counts['failed'],  'tone' => 'err'],
+                ['label' => 'פגו',     'value' => $counts['expired'], 'tone' => ''],
+            ];
+            ?>
+            <ul class="wsn-tiles">
+                <?php foreach ($tiles as $t): ?>
+                    <li class="wsn-tile <?php echo $t['tone'] ? 'wsn-tile-' . esc_attr($t['tone']) : ''; ?>">
+                        <span class="wsn-tile-num"><?php echo (int) $t['value']; ?></span>
+                        <span class="wsn-tile-label"><?php echo esc_html($t['label']); ?></span>
+                    </li>
+                <?php endforeach; ?>
             </ul>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('wsn_toggle_pause'); ?>

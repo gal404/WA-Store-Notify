@@ -1,73 +1,247 @@
-.wsn { direction: rtl; }
-.wsn h2 { margin-top: 28px; }
+/* ==========================================================================
+   WA Store Notify — עיצוב מסכי הניהול
+   מתלבש על wp-admin ולא נלחם בו: אותם רכיבים, רק מלוטשים. הפלטה נגזרת
+   מעולם התוכן (הטורקיז של וואטסאפ), מועמקת כדי להיראות מכוונת ולא צעצוע.
+   ========================================================================== */
+
+.wsn {
+    direction: rtl;
+
+    --wsn-accent: #0b7a6e;
+    --wsn-accent-soft: #e6f2f0;
+    --wsn-accent-deep: #075e55;
+    --wsn-ink: #0f2e2b;          /* כמעט-שחור בגוון טורקיז, לא שחור טהור */
+    --wsn-muted: #5b6b68;
+    --wsn-border: #dfe5e3;       /* אפור מוטה-טורקיז — נבחר, לא ברירת מחדל */
+    --wsn-surface: #fff;
+    --wsn-shadow: 0 1px 2px rgba(15, 46, 43, .06), 0 1px 3px rgba(15, 46, 43, .04);
+
+    --wsn-ok: #0f7b3f;
+    --wsn-ok-bg: #e7f4ec;
+    --wsn-warn: #9a6a00;
+    --wsn-warn-bg: #fdf3e0;
+    --wsn-err: #b3261e;
+    --wsn-err-bg: #fdeceb;
+    --wsn-idle: #55635f;
+    --wsn-idle-bg: #eef1f0;
+}
+
+/* ---------- כותרות ---------- */
+.wsn h1 {
+    color: var(--wsn-ink);
+    font-size: 23px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--wsn-border);
+}
+.wsn h2 {
+    margin-top: 30px;
+    color: var(--wsn-ink);
+    font-size: 15px;
+    font-weight: 600;
+    padding-inline-start: 10px;
+    border-inline-start: 3px solid var(--wsn-accent);
+    line-height: 1.5;
+}
+.wsn-card h2, .wsn-card h3 {
+    margin-top: 0;
+    border: 0;
+    padding-inline-start: 0;
+    font-size: 14px;
+}
+.wsn .description { color: var(--wsn-muted); }
+
+/* ---------- כרטיסים ---------- */
 .wsn-cards { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; }
 .wsn-card {
-    background: #fff; border: 1px solid #dcdcde; border-radius: 8px;
-    padding: 14px 18px; margin-bottom: 16px; flex: 1; min-width: 300px;
+    background: var(--wsn-surface);
+    border: 1px solid var(--wsn-border);
+    border-radius: 10px;
+    box-shadow: var(--wsn-shadow);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    flex: 1;
+    min-width: 300px;
 }
-.wsn-card h2, .wsn-card h3 { margin-top: 0; }
-.wsn-good { color: #007a3d; font-weight: 600; }
-.wsn-bad { color: #b3261e; font-weight: 600; }
-.wsn-stats { list-style: none; margin: 0; padding: 0; }
-.wsn-stats li { display: inline-block; margin-inline-end: 18px; }
-.wsn-variants textarea { width: 100%; margin-bottom: 8px; }
-.wsn-tpl code { background: #f0f0f1; padding: 1px 6px; border-radius: 4px; }
-.wsn .form-table th { width: 220px; }
 
-/* רוחבי שדות — במחלקות ולא ב-style inline, כי inline גובר על כל גיליון סגנונות
-   וניצח גם את הכלל של וורדפרס שמותח שדות ל-100% במובייל (forms.css) */
+/* ---------- אריחי מונים (עמוד הסטטוס) ---------- */
+.wsn-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+}
+.wsn-tile {
+    background: var(--wsn-surface);
+    border: 1px solid var(--wsn-border);
+    border-radius: 9px;
+    padding: 11px 12px;
+    text-align: center;
+}
+.wsn-tile .wsn-tile-num {
+    display: block;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--wsn-ink);
+    font-variant-numeric: tabular-nums;
+}
+.wsn-tile .wsn-tile-label {
+    display: block;
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--wsn-muted);
+}
+.wsn-tile-ok   .wsn-tile-num { color: var(--wsn-ok); }
+.wsn-tile-warn .wsn-tile-num { color: var(--wsn-warn); }
+.wsn-tile-err  .wsn-tile-num { color: var(--wsn-err); }
+
+/* ---------- תגיות סטטוס ---------- */
+.wsn-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.7;
+    white-space: nowrap;
+    background: var(--wsn-idle-bg);
+    color: var(--wsn-idle);
+}
+.wsn-pill-sent, .wsn-pill-done, .wsn-pill-active { background: var(--wsn-ok-bg); color: var(--wsn-ok); }
+.wsn-pill-queued, .wsn-pill-claimed, .wsn-pill-sending, .wsn-pill-scheduled { background: var(--wsn-warn-bg); color: var(--wsn-warn); }
+.wsn-pill-failed, .wsn-pill-invalid { background: var(--wsn-err-bg); color: var(--wsn-err); }
+.wsn-pill-cancelled, .wsn-pill-expired, .wsn-pill-unsubscribed, .wsn-pill-draft, .wsn-pill-paused { background: var(--wsn-idle-bg); color: var(--wsn-idle); }
+
+.wsn-good { color: var(--wsn-ok); font-weight: 600; }
+.wsn-bad  { color: var(--wsn-err); font-weight: 600; }
+.wsn-yes  { color: var(--wsn-ok); font-weight: 700; }
+.wsn-no   { color: #b5bfbc; }
+
+/* ---------- טבלאות ---------- */
+.wsn .wp-list-table {
+    border: 1px solid var(--wsn-border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--wsn-shadow);
+}
+.wsn .wp-list-table thead th,
+.wsn .wp-list-table thead td {
+    background: #f7faf9;
+    color: var(--wsn-muted);
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--wsn-border);
+}
+.wsn .wp-list-table tbody td,
+.wsn .wp-list-table tbody th { padding-top: 11px; padding-bottom: 11px; }
+.wsn .wp-list-table tbody tr:hover > * { background: #f8fbfa; }
+.wsn .wp-list-table td { color: #35433f; }
+.wsn-num { font-variant-numeric: tabular-nums; }
+
+/* ---------- טפסים ---------- */
+.wsn .form-table th {
+    width: 220px;
+    color: var(--wsn-ink);
+    font-weight: 600;
+}
+.wsn input:not([type="checkbox"]):not([type="radio"]),
+.wsn textarea,
+.wsn select {
+    max-width: 100%;
+    box-sizing: border-box;
+    border-color: #cfd8d6;
+    border-radius: 7px;
+}
+.wsn input:focus, .wsn textarea:focus, .wsn select:focus {
+    border-color: var(--wsn-accent);
+    box-shadow: 0 0 0 2px var(--wsn-accent-soft);
+    outline: 2px solid transparent; /* נגישות: המסגרת נשארת גלויה במצב ניגודיות גבוהה */
+}
+
+/* רוחבי שדות במחלקות ולא ב-style inline — inline גובר על כל גיליון סגנונות
+   וניצח גם את הכלל של core שמותח שדות ל-100% במובייל */
 .wsn .wsn-w-num  { width: 80px; }
 .wsn .wsn-w-date { width: 130px; }
 .wsn .wsn-w-sm   { width: 200px; }
 .wsn .wsn-w-md   { width: 320px; }
 .wsn .wsn-w-lg   { width: 420px; }
 
-/* רשת ביטחון: שום שדה לא חורג מרוחב המסך, בכל גודל מסך */
-.wsn input:not([type="checkbox"]):not([type="radio"]),
-.wsn textarea,
-.wsn select {
-    max-width: 100%;
-    box-sizing: border-box;
+/* ---------- כפתורים ---------- */
+.wsn .button-primary {
+    background: var(--wsn-accent);
+    border-color: var(--wsn-accent-deep);
+    box-shadow: none;
+    text-shadow: none;
 }
+.wsn .button-primary:hover,
+.wsn .button-primary:focus {
+    background: var(--wsn-accent-deep);
+    border-color: var(--wsn-accent-deep);
+}
+.wsn .button { border-radius: 7px; }
 
 /* מפתח API / טוקן ארוך — לשבור שורה במקום לדחוף את העמוד לרוחב */
-.wsn code { word-break: break-all; overflow-wrap: anywhere; }
+.wsn code {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    background: var(--wsn-accent-soft);
+    color: var(--wsn-accent-deep);
+    border-radius: 5px;
+    padding: 1px 6px;
+}
+.wsn-tpl code { background: #f0f0f1; color: inherit; }
 
-/* שורות כפתורים (סינון, פעולות קבוצתיות) — שיישברו יפה במסך צר */
+/* שורות כפתורים/סינון — שיישברו יפה במסך צר */
 .wsn .tablenav.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; height: auto; }
-.wsn form.wsn-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wsn form.wsn-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 
+.wsn-stats { list-style: none; margin: 0; padding: 0; }
+.wsn-stats li { display: inline-block; margin-inline-end: 18px; }
+.wsn-variants textarea { width: 100%; margin-bottom: 8px; }
+
+/* ==========================================================================
+   מובייל (הנקודה של wp-admin היא 782px)
+   ========================================================================== */
 @media screen and (max-width: 782px) {
-    /* וורדפרס מרדד את form-table לשורות; ה-220px שלנו היה מחזיר עמודה צרה ומעיכה */
+    /* core מרדד את form-table לשורות; ה-220px היה מחזיר עמודה צרה ומעיכה */
     .wsn .form-table th { width: auto; }
 
-    /* במסך צר כל השדות ברוחב מלא — קריא ונוח להקלדה */
-    .wsn .wsn-w-num,
-    .wsn .wsn-w-date,
+    .wsn h1 { font-size: 20px; }
+
+    /* שדות ארוכים ברוחב מלא — קריא ונוח להקלדה */
     .wsn .wsn-w-sm,
     .wsn .wsn-w-md,
     .wsn .wsn-w-lg { width: 100%; }
 
-    /* שדות מספר/שעה נשארים צרים כדי ששניים ייכנסו בשורה ("מ־ ... עד ...") */
-    .wsn .wsn-w-num { width: 5.5em; display: inline-block; }
-    /* תאריך צריך מקום ל-10 תווים (2026-07-20) */
-    .wsn .wsn-w-date { width: 10em; display: inline-block; }
+    /* שדות קצרים נשארים צרים כדי ששניים ייכנסו בשורה ("מ־ ... עד ...").
+       הסלקטור כולל td+input בכוונה: הכלל של core
+       (.form-table td input[type="text"] { width:100% }) ספציפי יותר מ-
+       ‎.wsn .wsn-w-num, ובלי זה שדות טקסט נמתחו לרוחב מלא בעוד שדות מספר
+       נשארו צרים — מראה מעורבב ושבור. */
+    .wsn .form-table td input.wsn-w-num,
+    .wsn input.wsn-w-num { width: 5.5em; display: inline-block; }
+    .wsn .form-table td input.wsn-w-date,
+    .wsn input.wsn-w-date { width: 10em; display: inline-block; }
 
-    .wsn-card { min-width: 0; padding: 12px 14px; }
-    .wsn-cards { gap: 12px; }
+    /* כרטיסים אחד מתחת לשני — שניים זה לצד זה ב-390px נמעכים לגמרי */
+    .wsn-cards { gap: 12px; display: block; }
+    .wsn-card { min-width: 0; width: auto; padding: 14px; }
     .wsn-stats li { display: block; margin: 0 0 4px; }
+    .wsn-tiles { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
 
-    /* התאמות לתצוגה המוערמת של וורדפרס: התווית מגיעה מ-data-colname */
-    .wsn .wp-list-table tr:not(.no-items) td.column-primary ~ td:not(.check-column) {
-        padding-right: 35%;
-        padding-left: 8px;
-    }
+    /* אין כאן תיקוני RTL לטבלאות בכוונה: וורדפרס טוען list-tables-rtl.css
+       בממשק בעברית, והוא כבר ממקם נכון את התווית (right:10px), את הריפוד
+       (3px 35% 3px 8px) ואת כפתור ההרחבה (left:8px). דריסה שלהם רק שברה
+       את המיקום. כאן רק מדגישים את התווית כדי שתהיה קריאה. */
     .wsn .wp-list-table tr:not(.no-items) td:not(.column-primary)::before {
-        right: 10px;
-        left: auto;
         font-weight: 600;
-        color: #50575e;
+        color: var(--wsn-ink);
     }
-    .wsn .wp-list-table td.column-primary { padding-left: 50px; padding-right: 8px; }
-    .wsn .wp-list-table .column-primary .toggle-row { left: 0; right: auto; }
+    /* פינות מעוגלות + overflow:hidden חותכים את התצוגה המוערמת של core */
+    .wsn .wp-list-table { border-radius: 8px; overflow: visible; }
 }

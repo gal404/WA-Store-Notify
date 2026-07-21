@@ -82,7 +82,7 @@ $cancellable = ['queued', 'claimed'];
                     <td data-colname="סוג"><?php echo esc_html($r['kind']); ?></td>
                     <td data-colname="תוכן"><?php echo esc_html(mb_strimwidth($r['body'], 0, 60, '…')); ?></td>
                     <td data-colname="סטטוס">
-                        <?php echo esc_html($labels[$r['status']] ?? $r['status']); ?>
+                        <span class="wsn-pill wsn-pill-<?php echo esc_attr($r['status']); ?>"><?php echo esc_html($labels[$r['status']] ?? $r['status']); ?></span>
                         <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
                     </td>
                     <td data-colname="הזמנה"><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>

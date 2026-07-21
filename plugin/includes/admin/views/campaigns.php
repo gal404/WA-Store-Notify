@@ -47,10 +47,10 @@ $status_labels = ['draft' => 'טיוטה', 'scheduled' => 'מתוזמן', 'sendi
                     <?php echo esc_html($c['title']); ?>
                     <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
                 </td>
-                <td data-colname="סטטוס"><?php echo esc_html($status_labels[$c['status']] ?? $c['status']); ?></td>
-                <td data-colname="נמענים"><?php echo (int) $c['total_recipients']; ?></td>
-                <td data-colname="נשלחו"><?php echo (int) $c['sent_count']; ?></td>
-                <td data-colname="נכשלו"><?php echo (int) $c['failed_count']; ?></td>
+                <td data-colname="סטטוס"><span class="wsn-pill wsn-pill-<?php echo esc_attr($c['status']); ?>"><?php echo esc_html($status_labels[$c['status']] ?? $c['status']); ?></span></td>
+                <td data-colname="נמענים" class="wsn-num"><?php echo (int) $c['total_recipients']; ?></td>
+                <td data-colname="נשלחו" class="wsn-num"><?php echo (int) $c['sent_count']; ?></td>
+                <td data-colname="נכשלו" class="wsn-num"><?php echo (int) $c['failed_count']; ?></td>
                 <td data-colname="נוצר"><?php echo esc_html(mysql2date('d/m/y', $c['created_at'])); ?></td>
                 <td data-colname="פעולות">
                     <?php if (in_array($c['status'], ['draft', 'scheduled'], true)): ?>

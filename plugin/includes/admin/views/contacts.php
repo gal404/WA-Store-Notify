@@ -65,11 +65,11 @@ $status_labels = ['active' => 'פעיל', 'unsubscribed' => 'הוסר', 'invalid
                     <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
                 </td>
                 <td data-colname="טלפון" dir="ltr"><?php echo esc_html($r['phone_e164']); ?></td>
-                <td data-colname="סטטוס"><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></td>
-                <td data-colname="דיוור"><?php echo $r['marketing_consent'] ? '✔' : '—'; ?></td>
-                <td data-colname="הזמנות"><?php echo (int) $r['orders_count']; ?></td>
+                <td data-colname="סטטוס"><span class="wsn-pill wsn-pill-<?php echo esc_attr($r['status']); ?>"><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></span></td>
+                <td data-colname="דיוור"><?php echo $r['marketing_consent'] ? '<span class="wsn-yes">✔</span>' : '<span class="wsn-no">—</span>'; ?></td>
+                <td data-colname="הזמנות" class="wsn-num"><?php echo (int) $r['orders_count']; ?></td>
                 <?php // wc_price מחזיר HTML (span/bdi + סמל מטבע) — esc_html היה מדפיס את התגיות כטקסט ?>
-                <td data-colname="סה&quot;כ קניות"><?php echo wp_kses_post(wc_price($r['total_spent'])); ?></td>
+                <td data-colname="סה&quot;כ קניות" class="wsn-num"><?php echo wp_kses_post(wc_price($r['total_spent'])); ?></td>
                 <td data-colname="הזמנה אחרונה"><?php echo $r['last_order_at'] ? esc_html(mysql2date('d/m/y', $r['last_order_at'])) : '—'; ?></td>
             </tr>
         <?php endforeach; endif; ?>
