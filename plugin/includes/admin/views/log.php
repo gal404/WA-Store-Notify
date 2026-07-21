@@ -69,11 +69,15 @@ $cancellable = ['queued', 'claimed'];
                 <tr class="no-items"><td colspan="8">אין רשומות.</td></tr>
             <?php else: foreach ($rows as $r): ?>
                 <tr>
-                    <td class="check-column">
+                    <?php // th (ולא td) בכוונה — כך עושה core, ורק על th חל הכלל
+                          // ‎.wp-list-table tr th.check-column { display: table-cell }‎ במובייל.
+                          // עם td התא מתמוטט ל-block, כל השורה מצטמצמת לעמודה צרה אחת
+                          // והתוכן נדחס לקצה במקום למלא את הרוחב. ?>
+                    <th scope="row" class="check-column">
                         <?php if (in_array($r['status'], $cancellable, true)): ?>
                             <input type="checkbox" class="wsn-msg-check" name="msg_ids[]" value="<?php echo (int) $r['id']; ?>">
                         <?php endif; ?>
-                    </td>
+                    </th>
                     <td class="column-primary" data-colname="טלפון">
                         <span dir="ltr"><?php echo esc_html($r['phone_e164']); ?></span>
                         <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
