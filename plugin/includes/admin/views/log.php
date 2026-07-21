@@ -109,12 +109,30 @@ if ($order_ids && function_exists('wc_get_orders')) {
                         <?php else: ?>
                             <span class="wsn-cust"><?php echo esc_html($r['kind'] === 'test' ? 'הודעת בדיקה' : 'ללא הזמנה'); ?></span>
                         <?php endif; ?>
-                        <span class="wsn-phone" dir="ltr">(<?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?>)</span>
+                        <?php
+                        // קישור לוואטסאפ עם ההודעה מוכנה בתיבת הכתיבה. wa.me הוא
+                        // הפורמט הרשמי; הוא פותח את WhatsApp Web במחשב ואת האפליקציה
+                        // בנייד. שים לב: זה רק מכין את הטקסט — השליחה עצמה ידנית,
+                        // ולא עוברת דרך התור/הגשר ולכן גם לא נרשמת ביומן.
+                        $wa_url = 'https://wa.me/' . rawurlencode($r['phone_e164'])
+                            . '?text=' . rawurlencode($r['body']);
+                        ?>
+                        <a class="wsn-phone wsn-wa-link" dir="ltr"
+                           href="<?php echo esc_url($wa_url); ?>"
+                           target="_blank" rel="noopener noreferrer"
+                           title="פתיחת שיחה בוואטסאפ עם ההודעה מוכנה לשליחה">
+                            (<?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?>)
+                        </a>
                         <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
                     </td>
                     <td data-colname="מתי"><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>
                     <td data-colname="סוג"><?php echo esc_html($r['kind']); ?></td>
-                    <td data-colname="תוכן"><?php echo esc_html(mb_strimwidth($r['body'], 0, 60, '…')); ?></td>
+                    <?php // הטקסט המלא נמצא ב-DOM (ניתן לחיפוש/העתקה) ומקוצר ויזואלית
+                          // בלבד, כדי שהשורה תישאר קומפקטית — לחיצה פותחת אותו. ?>
+                    <td data-colname="תוכן">
+                        <div class="wsn-body" role="button" tabindex="0"
+                             title="לחץ להצגת ההודעה המלאה"><?php echo esc_html($r['body']); ?></div>
+                    </td>
                     <td data-colname="סטטוס">
                         <span class="wsn-pill wsn-pill-<?php echo esc_attr($r['status']); ?>"><?php echo esc_html($labels[$r['status']] ?? $r['status']); ?></span>
                         <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>

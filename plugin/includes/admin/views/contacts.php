@@ -84,7 +84,15 @@ if ($last_order_ids && function_exists('wc_get_orders')) {
                 <?php // dir="ltr" על ה-span הפנימי ולא על התא: על התא הוא היה מיישר
                       // את כל התוכן שמאלה, ובתצוגה המוערמת במובייל המספר היה קופץ
                       // לצד שמאל במקום לשבת ליד התווית שלו. ?>
-                <td data-colname="טלפון"><span class="wsn-phone" dir="ltr"><?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?></span></td>
+                <td data-colname="טלפון">
+                    <?php // במועדון אין תוכן הודעה, אז הקישור רק פותח את השיחה ?>
+                    <a class="wsn-phone wsn-wa-link" dir="ltr"
+                       href="<?php echo esc_url('https://wa.me/' . rawurlencode($r['phone_e164'])); ?>"
+                       target="_blank" rel="noopener noreferrer"
+                       title="פתיחת שיחה בוואטסאפ">
+                        <?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?>
+                    </a>
+                </td>
                 <td data-colname="סטטוס"><span class="wsn-pill wsn-pill-<?php echo esc_attr($r['status']); ?>"><?php echo esc_html($status_labels[$r['status']] ?? $r['status']); ?></span></td>
                 <td data-colname="דיוור"><?php echo $r['marketing_consent'] ? '<span class="wsn-yes">✔</span>' : '<span class="wsn-no">—</span>'; ?></td>
                 <td data-colname="הזמנות" class="wsn-num"><?php echo (int) $r['orders_count']; ?></td>

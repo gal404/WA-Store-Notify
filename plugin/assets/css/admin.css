@@ -77,7 +77,12 @@
 /* ---------- שורת הזמנה/לקוח ביומן ומועדון ---------- */
 .wsn-order-link { font-weight: 600; text-decoration: none; }
 .wsn-cust { color: var(--wsn-ink); }
-.wsn-phone { color: var(--wsn-muted); font-variant-numeric: tabular-nums; unicode-bidi: isolate; }
+/* nowrap — אחרת המספר נשבר באמצע ("(050-" בשורה אחת, "4222904)" בשנייה) */
+.wsn-phone { color: var(--wsn-muted); font-variant-numeric: tabular-nums; unicode-bidi: isolate; white-space: nowrap; }
+/* קישור לוואטסאפ — נראה לחיץ בלי לצעוק, עם אייקון קטן שמסמן "נפתח בוואטסאפ" */
+.wsn-wa-link { text-decoration: none; border-bottom: 1px dotted #c3ccca; }
+.wsn-wa-link:hover { color: var(--wsn-accent-deep); border-bottom-color: var(--wsn-accent); }
+.wsn-wa-link::after { content: " 💬"; font-size: 11px; }
 .wsn-when { color: var(--wsn-muted); font-size: 12px; }
 .wsn-pill-order { background: var(--wsn-accent-soft); color: var(--wsn-accent-deep); }
 
@@ -170,6 +175,25 @@
 .wsn .wp-list-table tbody tr:hover > * { background: #f8fbfa; }
 .wsn .wp-list-table td { color: #35433f; }
 .wsn-num { font-variant-numeric: tabular-nums; }
+
+/* תוכן ההודעה: מקוצר ל-2 שורות אבל הטקסט המלא בפנים — לחיצה פותחת */
+.wsn-body {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-wrap;   /* שומר שורות חדשות בתוך ההודעה */
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    max-width: 46em;
+}
+.wsn-body.is-open {
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
+}
+.wsn-body:focus-visible { outline: 2px solid var(--wsn-accent); outline-offset: 2px; }
 
 /* ---------- טפסים ---------- */
 .wsn .form-table th {
@@ -288,5 +312,11 @@
        וזה מה שהקפיץ את הטלפון לצד הלא נכון. */
     .wsn .wp-list-table td.column-primary .wsn-cust,
     .wsn .wp-list-table td.column-primary .wsn-phone { display: block; text-align: right; }
+    /* הקישור בשורה נפרדת אבל "עוטף" את הטקסט, כדי שהקו התחתון לא יימתח
+       על כל רוחב השורה. margin-inline-end:auto צמוד אותו לימין ב-RTL. */
+    .wsn .wp-list-table td.column-primary a.wsn-phone {
+        width: fit-content;
+        margin-inline-end: auto;
+    }
     .wsn .wp-list-table td.column-primary .wsn-pill { margin-top: 3px; }
 }

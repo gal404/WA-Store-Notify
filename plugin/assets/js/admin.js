@@ -57,6 +57,19 @@
             });
     }
 
+    // תוכן הודעה ביומן — לחיצה/Enter פותחת וסוגרת את הטקסט המלא
+    document.addEventListener('click', function (e) {
+        var body = e.target.closest && e.target.closest('.wsn-body');
+        if (body) { body.classList.toggle('is-open'); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var body = e.target.closest && e.target.closest('.wsn-body');
+        if (!body) return;
+        e.preventDefault();
+        body.classList.toggle('is-open');
+    });
+
     // "שלח מיידית" ביומן — מדלג בתור להודעה בודדת ומראה חי מתי היא נשלחת בפועל
     document.addEventListener('click', function (e) {
         if (!e.target.classList.contains('wsn-send-now-row')) return;
