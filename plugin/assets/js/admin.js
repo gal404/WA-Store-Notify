@@ -57,6 +57,26 @@
             });
     }
 
+    // "שלח מיידית" ביומן — מדלג בתור להודעה בודדת ומראה חי מתי היא נשלחת בפועל
+    document.addEventListener('click', function (e) {
+        if (!e.target.classList.contains('wsn-send-now-row')) return;
+        var btn = e.target;
+        var status = btn.parentElement.querySelector('.wsn-send-now-status');
+        var id = btn.dataset.id;
+        btn.disabled = true;
+        status.textContent = 'מדלג בתור…';
+        fetch(WSN.ajax, {
+            method: 'POST',
+            body: new URLSearchParams({ action: 'wsn_send_now_single', nonce: WSN.nonce, id: id })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) { status.textContent = 'שגיאה: ' + (d.data || ''); btn.disabled = false; return; }
+                pollTestStatus(id, btn, status, 0);
+            })
+            .catch(function (err) { status.textContent = 'שגיאה: ' + err.message; btn.disabled = false; });
+    });
+
     // חישוב קהל יעד להערכת קמפיין (חי)
     var countBtn = document.getElementById('wsn-count-btn');
     if (countBtn) {

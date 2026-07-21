@@ -22,6 +22,7 @@ class WSN_Admin
         add_action('wp_ajax_wsn_audience_count', [__CLASS__, 'ajax_audience_count']);
         add_action('wp_ajax_wsn_send_test', [__CLASS__, 'ajax_send_test']);
         add_action('wp_ajax_wsn_test_status', [__CLASS__, 'ajax_test_status']);
+        add_action('wp_ajax_wsn_send_now_single', [__CLASS__, 'ajax_send_now_single']);
     }
 
     public static function menu(): void
@@ -235,6 +236,21 @@ class WSN_Admin
             $back
         ));
         exit;
+    }
+
+    // כפתור "שלח מיידית" בודד לכל שורה ביומן — בלי checkbox/submit, בלי טעינת עמוד מחדש
+    public static function ajax_send_now_single(): void
+    {
+        check_ajax_referer('wsn_admin', 'nonce');
+        if (!current_user_can(self::CAP)) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $id = (int) ($_POST['id'] ?? 0);
+        $n = $id > 0 ? WSN_Outbox::send_now_by_ids([$id]) : 0;
+        if ($n > 0) {
+            wp_send_json_success();
+        }
+        wp_send_json_error('ההודעה כבר לא ממתינה (נשלחה/בוטלה/נכשלה סופית)');
     }
 
     public static function handle_export_contacts(): void

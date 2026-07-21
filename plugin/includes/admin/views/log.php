@@ -60,11 +60,11 @@ $cancellable = ['queued', 'claimed'];
         <table class="wp-list-table widefat fixed striped">
             <thead><tr>
                 <td class="check-column"><input type="checkbox" onclick="document.querySelectorAll('.wsn-msg-check').forEach(c => c.checked = this.checked)"></td>
-                <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th>
+                <th>מתי</th><th>טלפון</th><th>סוג</th><th>תוכן</th><th>סטטוס</th><th>הזמנה</th><th>פעולות</th>
             </tr></thead>
             <tbody>
             <?php if (!$rows): ?>
-                <tr><td colspan="7">אין רשומות.</td></tr>
+                <tr><td colspan="8">אין רשומות.</td></tr>
             <?php else: foreach ($rows as $r): ?>
                 <tr>
                     <td class="check-column">
@@ -81,6 +81,12 @@ $cancellable = ['queued', 'claimed'];
                         <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
                     </td>
                     <td><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
+                    <td>
+                        <?php if ($r['status'] === 'queued'): ?>
+                            <button type="button" class="button wsn-send-now-row" data-id="<?php echo (int) $r['id']; ?>">שלח מיידית</button>
+                            <span class="wsn-send-now-status description"></span>
+                        <?php else: ?>—<?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; endif; ?>
             </tbody>
