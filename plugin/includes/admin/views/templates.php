@@ -45,6 +45,7 @@ $render_row = static function (string $key, string $label) use ($templates, $is_
 
 // --- קבוצות ---
 $change_group = [
+    'tracking_update'    => 'עדכון מספר מעקב למשלוח',
     'item_removed'       => 'פריט אחד אזל מהמלאי',
     'item_removed_multi' => 'כמה פריטים אזלו מהמלאי (רשימה)',
     'item_added'         => 'נוסף פריט להזמנה',
@@ -74,7 +75,7 @@ foreach ($statuses as $key => $label) {
     <p class="description">
         כל שורה היא נוסח. לחיצה על שורה פותחת אותה לעריכה. הודעה "מופעלת" נבנית אוטומטית ומופיעה
         <a href="<?php echo esc_url(admin_url('admin.php?page=wsn-pending')); ?>"><b>לאישור</b></a> — לא נשלחת מעצמה.<br>
-        placeholders: <code dir="ltr">{first_name} {last_name} {order_number} {order_total} {items} {status_name} {store_name}</code>,
+        placeholders: <code dir="ltr">{first_name} {last_name} {order_number} {order_total} {items} {status_name} {store_name} {shipping_method} {tracking_number} {tracking_url}</code>,
         ובהודעות שינויים גם <code dir="ltr">{removed_item} {removed_list} {new_item} {changes}</code>
         (<span dir="rtl">{removed_list} = רשימה ממוספרת של הפריטים שאזלו</span>).
     </p>

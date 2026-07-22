@@ -8,6 +8,45 @@ class WSN_Tracking
         add_action('add_meta_boxes', [__CLASS__, 'add_metabox']);
         // priority 5 — לפני שינוי הסטטוס באותה שמירה, כדי ש"הדבק מעקב + סמן כנשלח + עדכן" יעבוד בקליק אחד
         add_action('woocommerce_process_shop_order_meta', [__CLASS__, 'save_metabox'], 5, 1);
+        // עדכון מספר מעקב → טיוטת הודעה ללקוח (עובד גם לשדה הידני וגם למפתח מוגדר)
+        add_action('woocommerce_after_order_object_save', [__CLASS__, 'maybe_notify_tracking'], 20, 1);
+    }
+
+    /**
+     * מזהה מספר מעקב (חדש או שהשתנה) ובונה טיוטת הודעה לאישור. אין שליחה
+     * אוטומטית. מניעת כפילות דרך event_key ייחודי לפי מספר המעקב — לכן אין
+     * צורך לשמור דגל בהזמנה (וגם אין recursion של $order->save()).
+     */
+    public static function maybe_notify_tracking($order): void
+    {
+        if (!$order instanceof WC_Order) {
+            return;
+        }
+        $num = trim((string) (self::get($order)['number'] ?? ''));
+        if ($num === '') {
+            return;
+        }
+        $tpl = WSN_Templates::get('tracking_update');
+        if (!$tpl) {
+            return;
+        }
+        $phone = WSN_Phone::to_e164($order->get_billing_phone());
+        if (!$phone || WSN_Contacts::is_unsubscribed($phone)) {
+            return;
+        }
+        $body = WSN_Templates::render(WSN_Templates::pick_variant($tpl), $order);
+        $id = WSN_Outbox::enqueue([
+            'kind'      => 'status',
+            'order_id'  => $order->get_id(),
+            'phone'     => $phone,
+            'body'      => $body,
+            'status'    => 'draft',
+            // ייחודי למספר המעקב — מספר זהה לא ייצור טיוטה כפולה; מספר חדש כן
+            'event_key' => 'order-' . $order->get_id() . '-track-' . md5($num),
+        ]);
+        if ($id) {
+            $order->add_order_note('וואטסאפ: הוכנה טיוטת עדכון מספר מעקב (' . $num . ') — ממתינה לאישור');
+        }
     }
 
     /** מחזיר ['number' => ..., 'url' => ...] — ריקים אם אין */

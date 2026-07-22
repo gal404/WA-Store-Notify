@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 class WSN_Templates
 {
     /** מפתחות תבניות שאינן סטטוס הזמנה */
-    const SPECIAL_KEYS = ['item_added', 'item_removed', 'item_removed_multi', 'qty_changed', 'order_changes', 'item_replaced', 'customer_note', 'optout_confirm'];
+    const SPECIAL_KEYS = ['item_added', 'item_removed', 'item_removed_multi', 'qty_changed', 'order_changes', 'item_replaced', 'customer_note', 'tracking_update', 'optout_confirm'];
 
     public static function defaults(): array
     {
@@ -84,6 +84,17 @@ class WSN_Templates
 אם יש שאלה — פשוט השב לנו כאן.",
                 ],
             ],
+            'tracking_update' => [
+                'enabled'  => 1,
+                'variants' => [
+                    "היי {first_name}, ההזמנה שלך #{order_number} יצאה לדרך! 📦
+מספר מעקב למשלוח: {tracking_number}
+{tracking_url}",
+                    "{first_name}, יש עדכון על ההזמנה #{order_number} — היא בדרך אליך 🚚
+מספר מעקב: {tracking_number}
+{tracking_url}",
+                ],
+            ],
             'optout_confirm' => [
                 'enabled'  => 1,
                 'variants' => [
@@ -140,6 +151,7 @@ class WSN_Templates
                 'order_total'     => html_entity_decode(wp_strip_all_tags(wc_price($order->get_total()))),
                 'items'           => implode(', ', $items),
                 'status_name'     => wc_get_order_status_name($status),
+                'shipping_method' => $order->get_shipping_method(),
                 'tracking_number' => '',
                 'tracking_url'    => '',
             ];

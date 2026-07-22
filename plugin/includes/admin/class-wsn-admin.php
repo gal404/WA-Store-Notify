@@ -41,6 +41,7 @@ class WSN_Admin
         add_submenu_page('wsn-status', 'יומן הודעות', 'יומן', self::CAP, 'wsn-log', [__CLASS__, 'page_log']);
         add_submenu_page('wsn-status', 'מועדון לקוחות', 'מועדון', self::CAP, 'wsn-contacts', [__CLASS__, 'page_contacts']);
         add_submenu_page('wsn-status', 'קמפיינים', 'קמפיינים', self::CAP, 'wsn-campaigns', [__CLASS__, 'page_campaigns']);
+        add_submenu_page('wsn-status', 'בדיקת הזמנה', 'בדיקת הזמנה', self::CAP, 'wsn-inspect', [__CLASS__, 'page_inspect']);
     }
 
     /** מסך עריכת הזמנה — גם קלאסי וגם HPOS */
@@ -136,6 +137,79 @@ class WSN_Admin
     public static function page_contacts(): void  { self::guard(); self::view('contacts'); }
     public static function page_campaigns(): void { self::guard(); self::view('campaigns', ['campaigns' => WSN_Campaigns::all()]); }
     public static function page_pending(): void   { self::guard(); self::view('pending', ['drafts' => self::enrich_drafts(WSN_Outbox::list_drafts(200))]); }
+    public static function page_inspect(): void
+    {
+        self::guard();
+        $oid = (int) ($_GET['oid'] ?? 0); // phpcs:ignore WordPress.Security.NonceVerification -- קריאה בלבד
+        self::view('inspect', ['oid' => $oid, 'data' => $oid ? self::inspect_order($oid) : null]);
+    }
+
+    /** מחלץ את כל המטא של ההזמנה + פריטים + שיטות משלוח, לתצוגה מסודרת */
+    private static function inspect_order(int $oid): array
+    {
+        if (!function_exists('wc_get_order')) {
+            return ['error' => 'WooCommerce לא פעיל'];
+        }
+        $o = wc_get_order($oid);
+        if (!$o instanceof WC_Order) {
+            return ['error' => 'הזמנה #' . $oid . ' לא נמצאה'];
+        }
+
+        $core = [
+            'מספר הזמנה'   => $o->get_order_number(),
+            'סטטוס'        => wc_get_order_status_name($o->get_status()) . ' (' . $o->get_status() . ')',
+            'שם'           => trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name()),
+            'טלפון'        => $o->get_billing_phone(),
+            'אימייל'       => $o->get_billing_email(),
+            'סה"כ'         => html_entity_decode(wp_strip_all_tags(wc_price($o->get_total()))),
+            'כתובת משלוח'  => wp_strip_all_tags($o->get_formatted_shipping_address() ?: '—'),
+        ];
+
+        // שיטות המשלוח — כאן רואים אם זה איסוף עצמי / משלוח עד הבית
+        $shipping = [];
+        foreach ($o->get_shipping_methods() as $sm) {
+            $smeta = [];
+            foreach ($sm->get_meta_data() as $m) {
+                $d = $m->get_data();
+                $smeta[(string) $d['key']] = $d['value'];
+            }
+            $shipping[] = [
+                'title'     => $sm->get_method_title(),
+                'method_id' => $sm->get_method_id(),   // local_pickup / flat_rate / free_shipping / מותאם
+                'instance'  => $sm->get_instance_id(),
+                'total'     => $sm->get_total(),
+                'meta'      => $smeta,
+            ];
+        }
+
+        // כל המטא של ההזמנה
+        $meta = [];
+        foreach ($o->get_meta_data() as $m) {
+            $d = $m->get_data();
+            $meta[(string) $d['key']] = $d['value'];
+        }
+        ksort($meta);
+
+        // פריטים + המטא של כל פריט
+        $items = [];
+        foreach ($o->get_items() as $item) {
+            $imeta = [];
+            foreach ($item->get_meta_data() as $m) {
+                $d = $m->get_data();
+                $imeta[(string) $d['key']] = $d['value'];
+            }
+            $product = $item->get_product();
+            $items[] = [
+                'name'       => $item->get_name(),
+                'qty'        => $item->get_quantity(),
+                'product_id' => $item->get_product_id(),
+                'sku'        => $product ? $product->get_sku() : '',
+                'meta'       => $imeta,
+            ];
+        }
+
+        return ['core' => $core, 'shipping' => $shipping, 'meta' => $meta, 'items' => $items];
+    }
 
     /** מוסיף לכל טיוטה פרטי הזמנה ולקוח, לתצוגה במסך "הודעות ממתינות" */
     private static function enrich_drafts(array $drafts): array
