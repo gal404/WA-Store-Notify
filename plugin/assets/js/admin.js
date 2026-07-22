@@ -117,9 +117,11 @@
             }).join('');
             wrap.innerHTML =
                 '<div class="wsn-modal" role="dialog" aria-modal="true" dir="rtl">' +
+                '<div class="wsn-modal-head">' +
                 '<h2>' + (events.length > 1 ? 'סיבות לשינויים בהזמנה' : 'סיבת השינוי בהזמנה') + '</h2>' +
                 '<p class="description">התנועות נשמרו. בחירת סיבה תאפשר בהמשך לשלוח ללקוח הודעה מדויקת על השינוי.</p>' +
-                rows +
+                '</div>' +
+                '<div class="wsn-modal-body">' + rows + '</div>' +
                 '<div class="wsn-modal-actions">' +
                 '<button type="button" class="button button-primary wsn-modal-save">שמור</button>' +
                 '<button type="button" class="button wsn-modal-later">אחר כך</button>' +
@@ -127,13 +129,23 @@
                 '</div></div>';
             document.body.appendChild(wrap);
 
+            // סגירה ב-ESC (מנקה את המאזין כדי לא לדלוף)
+            function closeModal() {
+                document.removeEventListener('keydown', onKey);
+                wrap.remove();
+            }
+            function onKey(e) {
+                if (e.key === 'Escape' || e.keyCode === 27) { closeModal(); }
+            }
+            document.addEventListener('keydown', onKey);
+
             // "אחר" חושף שדה טקסט חופשי
             wrap.addEventListener('change', function (e) {
                 if (!e.target.classList.contains('wsn-reason')) return;
                 var other = e.target.parentElement.querySelector('.wsn-reason-other');
                 other.hidden = e.target.value !== 'other';
             });
-            wrap.querySelector('.wsn-modal-later').addEventListener('click', function () { wrap.remove(); });
+            wrap.querySelector('.wsn-modal-later').addEventListener('click', closeModal);
             wrap.querySelector('.wsn-modal-save').addEventListener('click', function () {
                 var btn = this, msg = wrap.querySelector('.wsn-modal-msg');
                 btn.disabled = true;
@@ -155,7 +167,7 @@
                         btn.disabled = false;
                         return;
                     }
-                    wrap.remove();
+                    closeModal();
                     location.reload(); // מרענן את טבלת התנועות במטא-בוקס
                 }).catch(function () {
                     msg.textContent = 'שגיאת רשת — נסה שוב';

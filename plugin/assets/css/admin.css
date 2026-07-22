@@ -61,11 +61,14 @@
     padding: 16px;
 }
 .wsn-modal {
-    background: #fff; border-radius: 12px; padding: 20px;
-    width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto;
+    background: #fff; border-radius: 12px;
+    width: 100%; max-width: 520px; max-height: 85vh;
+    display: flex; flex-direction: column; overflow: hidden;
     box-shadow: 0 10px 40px rgba(15, 46, 43, .25);
     font-family: inherit;
 }
+.wsn-modal-head { padding: 20px 20px 0; flex: 0 0 auto; }
+.wsn-modal-body { padding: 0 20px; overflow-y: auto; flex: 1 1 auto; }
 .wsn-modal h2 { margin: 0 0 6px; font-size: 16px; color: #0f2e2b; border: 0; padding: 0; }
 .wsn-modal .description { margin: 0 0 14px; }
 .wsn-modal-row {
@@ -74,9 +77,17 @@
 }
 .wsn-modal-desc { font-weight: 600; color: #0f2e2b; }
 .wsn-modal select, .wsn-modal input[type="text"] { width: 100%; border-radius: 7px; }
-.wsn-modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+/* פס תחתון קבוע — לא נגלל עם רשימת השורות */
+.wsn-modal-actions {
+    display: flex; align-items: center; gap: 8px;
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    border-top: 1px solid #dfe5e3; background: #fff;
+}
 @media screen and (max-width: 600px) {
-    .wsn-modal { padding: 16px; }
+    .wsn-modal-head { padding: 16px 16px 0; }
+    .wsn-modal-body { padding: 0 16px; }
+    .wsn-modal-actions { padding: 12px 16px; }
     .wsn-modal-actions .button { flex: 1; text-align: center; }
 }
 
