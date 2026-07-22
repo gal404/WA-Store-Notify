@@ -50,6 +50,7 @@ class WSN_Settings
             'send_mode_qty_changed'     => 'manual',
             'send_mode_order_status'    => 'auto',
             'send_mode_order_cancelled' => 'manual',
+            'send_mode_customer_note'   => 'manual',
         ];
     }
 

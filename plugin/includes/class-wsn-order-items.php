@@ -21,6 +21,8 @@ class WSN_Order_Items
         add_action('woocommerce_new_order_item', [__CLASS__, 'on_new_item'], 10, 3);
         add_action('woocommerce_before_delete_order_item', [__CLASS__, 'on_before_delete_item'], 10, 1);
         add_action('woocommerce_saved_order_items', [__CLASS__, 'on_saved_items'], 20, 2);
+        // שינוי הערת-הלקוח נשמר בלחיצת "עדכן" (לא AJAX כמו פריטים) — נתפס ב-diff של השמירה
+        add_action('woocommerce_before_order_object_save', [__CLASS__, 'on_before_order_save'], 10, 1);
 
         add_action('wp_ajax_wsn_pending_item_events', [__CLASS__, 'ajax_pending_events']);
         add_action('wp_ajax_wsn_save_item_reasons', [__CLASS__, 'ajax_save_reasons']);
@@ -160,6 +162,47 @@ class WSN_Order_Items
         self::save_state($order, $now);
     }
 
+    /**
+     * מעקב שינוי הערת-הלקוח על ההזמנה (customer_note). WooCommerce לא נותן הוק
+     * ייעודי לשינוי הערה, לכן משתמשים ב-diff דרך get_changes() בעת שמירת ההזמנה.
+     * מגודר לעריכה מהניהול בלבד, כדי שהערת הצ'קאאוט המקורית לא תיחשב "עריכה".
+     */
+    public static function on_before_order_save($order): void
+    {
+        if (!$order instanceof WC_Order || !is_admin() || wp_doing_cron()) {
+            return;
+        }
+        $changes = $order->get_changes();
+        if (!array_key_exists('customer_note', $changes)) {
+            return; // ההערה לא השתנתה בשמירה הזו
+        }
+        $new = (string) $changes['customer_note'];
+        // הערך הישן — מהעותק השמור ב-DB לפני השמירה הנוכחית
+        $old = '';
+        $fresh = wc_get_order($order->get_id());
+        if ($fresh instanceof WC_Order) {
+            $old = (string) $fresh->get_customer_note();
+        }
+
+        $auto = WSN_Change_Composer::is_auto('customer_note');
+        $id = WSN_Item_Events::record([
+            'order_id'   => $order->get_id(),
+            'event_type' => WSN_Item_Events::TYPE_NOTE,
+            'item_name'  => 'הערת לקוח',
+            'old_value'  => $old,
+            'new_value'  => $new,
+            'notified'   => 0, // תמיד ניתן לשליחה; אם auto — נשלח מיד למטה ומסומן
+        ]);
+
+        // אין להערה שלב "סיבה", לכן במצב אוטומטי שולחים מיד (queue מסמן notified)
+        if ($auto && $id) {
+            $ev = WSN_Item_Events::get($id);
+            if ($ev) {
+                WSN_Change_Composer::queue($order, [$ev]);
+            }
+        }
+    }
+
     public static function ajax_pending_events(): void
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
@@ -286,13 +329,24 @@ class WSN_Order_Items
         $reasons = (array) ($_POST['reasons'] ?? []);
         $saved = 0;
         $ids = [];
+        $failed = [];
         foreach ($reasons as $event_id => $r) {
             $code = sanitize_key($r['code'] ?? '');
             $text = sanitize_text_field(wp_unslash($r['text'] ?? ''));
             if ($code !== '' && WSN_Item_Events::set_reason((int) $event_id, $code, $text)) {
                 $saved++;
                 $ids[] = (int) $event_id;
+            } else {
+                $failed[] = (int) $event_id;
             }
+        }
+        // כשל שמירה אסור שיתחזה להצלחה: בלי זה ה-JS מרענן והמודאל חוזר "ריק"
+        if ($failed) {
+            wp_send_json_error([
+                'message' => 'חלק מהסיבות לא נשמרו — נסה שוב',
+                'failed'  => $failed,
+                'saved'   => $saved,
+            ]);
         }
 
         // שליחה אוטומטית — רק לסוגים שסומנו כאוטומטיים בהגדרות, ורק עכשיו
@@ -362,7 +416,7 @@ class WSN_Order_Items
     {
         $screen = function_exists('wc_get_page_screen_id') ? wc_get_page_screen_id('shop-order') : 'shop_order';
         add_meta_box('wsn_items_notify', 'וואטסאפ — עדכון פריטים ללקוח', [__CLASS__, 'render_metabox'], $screen, 'normal', 'default');
-        add_meta_box('wsn_item_events', 'וואטסאפ — תנועות פריטים', [__CLASS__, 'render_events_metabox'], $screen, 'normal', 'default');
+        add_meta_box('wsn_item_events', 'וואטסאפ — תנועות הזמנה', [__CLASS__, 'render_events_metabox'], $screen, 'normal', 'default');
     }
 
     /** יומן התנועות של ההזמנה + עוגן למודאל הסיבות */
@@ -415,7 +469,7 @@ class WSN_Order_Items
             <?php endif; ?>
 
             <?php if (!$events): ?>
-                <p class="description">אין עדיין תנועות. שינוי כמות, הוספה או הסרה של פריט יירשמו כאן אוטומטית.</p>
+                <p class="description">אין עדיין תנועות. שינוי כמות, הוספה/הסרה של פריט, שינוי סטטוס או שינוי הערת-לקוח יירשמו כאן אוטומטית.</p>
             <?php else: ?>
                 <table class="widefat striped">
                     <thead><tr><th>מתי</th><th>תנועה</th><th>סיבה</th><th>מי</th></tr></thead>
@@ -430,8 +484,10 @@ class WSN_Order_Items
                             <td>
                                 <?php if ($reason !== ''): ?>
                                     <span class="wsn-pill wsn-pill-order"><?php echo esc_html($reason); ?></span>
-                                <?php else: ?>
+                                <?php elseif (in_array($e['event_type'], WSN_Item_Events::REASONED_TYPES, true)): ?>
                                     <span class="wsn-pill wsn-pill-queued">ממתין לסיבה</span>
+                                <?php else: ?>
+                                    —
                                 <?php endif; ?>
                             </td>
                             <td><?php echo esc_html($user ? $user->display_name : '—'); ?></td>

@@ -123,6 +123,7 @@
                 '<div class="wsn-modal-actions">' +
                 '<button type="button" class="button button-primary wsn-modal-save">שמור</button>' +
                 '<button type="button" class="button wsn-modal-later">אחר כך</button>' +
+                '<span class="wsn-modal-msg" style="color:#b32d2e;margin-inline-start:8px"></span>' +
                 '</div></div>';
             document.body.appendChild(wrap);
 
@@ -134,29 +135,46 @@
             });
             wrap.querySelector('.wsn-modal-later').addEventListener('click', function () { wrap.remove(); });
             wrap.querySelector('.wsn-modal-save').addEventListener('click', function () {
-                var btn = this;
+                var btn = this, msg = wrap.querySelector('.wsn-modal-msg');
                 btn.disabled = true;
+                msg.textContent = '';
+                var rows = wrap.querySelectorAll('.wsn-modal-row');
                 var extra = {};
-                wrap.querySelectorAll('.wsn-modal-row').forEach(function (row) {
+                rows.forEach(function (row) {
                     var id = row.dataset.eventId;
                     var code = row.querySelector('.wsn-reason').value;
                     var text = row.querySelector('.wsn-reason-other').value;
                     extra['reasons[' + id + '][code]'] = code;
                     extra['reasons[' + id + '][text]'] = text;
                 });
-                post('wsn_save_item_reasons', extra).then(function () {
+                post('wsn_save_item_reasons', extra).then(function (d) {
+                    // check_ajax_referer שנכשל מחזיר -1 (JSON תקין) — לכן בודקים תוכן,
+                    // וגם ש-saved מכסה את כל השורות, ורק אז מרעננים.
+                    if (!d || !d.success || !d.data || d.data.saved < rows.length) {
+                        msg.textContent = (d && d.data && d.data.message) ? d.data.message : 'שמירה נכשלה — נסה שוב';
+                        btn.disabled = false;
+                        return;
+                    }
                     wrap.remove();
                     location.reload(); // מרענן את טבלת התנועות במטא-בוקס
-                }).catch(function () { btn.disabled = false; });
+                }).catch(function () {
+                    msg.textContent = 'שגיאת רשת — נסה שוב';
+                    btn.disabled = false;
+                });
             });
         }
 
+        var pendingInFlight = false;
         function checkPending() {
+            // מונע מרוץ: שתי קריאות חופפות (טעינה + ajaxComplete) לא יבנו שני מודאלים
+            if (pendingInFlight || document.querySelector('.wsn-modal-backdrop')) { return; }
+            pendingInFlight = true;
             post('wsn_pending_item_events', {}).then(function (d) {
                 if (d && d.success && d.data.events.length && !document.querySelector('.wsn-modal-backdrop')) {
                     buildModal(d.data.events);
                 }
-            }).catch(function () { /* שקט — לא מפריעים לעריכת ההזמנה */ });
+            }).catch(function () { /* שקט — לא מפריעים לעריכת ההזמנה */ })
+              .then(function () { pendingInFlight = false; });
         }
 
         // ווקומרס שומר/מוסיף/מסיר פריטים ב-AJAX. מאזינים לסיום הקריאות האלה

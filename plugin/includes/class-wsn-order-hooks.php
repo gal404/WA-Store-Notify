@@ -28,30 +28,39 @@ class WSN_Order_Hooks
 
         // ביטול הזמנה הוא סוג נפרד בהגדרות; שאר הסטטוסים תחת 'שינוי סטטוס'
         $change_type = ($new === 'cancelled') ? 'order_cancelled' : 'order_status';
-        if (!WSN_Change_Composer::is_auto($change_type)) {
-            return; // מצב ידני — ההודעה תישלח מעמוד ההזמנה בלחיצה
+
+        // שליחה אוטומטית דרך הצינור הקיים (תבנית wc-{status})
+        $sent = false;
+        if (WSN_Change_Composer::is_auto($change_type)) {
+            $tpl = WSN_Templates::get('wc-' . $new);
+            $phone = WSN_Phone::to_e164($order->get_billing_phone());
+            if ($tpl && $phone && !WSN_Contacts::is_unsubscribed($phone)) {
+                $body = WSN_Templates::render(WSN_Templates::pick_variant($tpl), $order);
+                $id = WSN_Outbox::enqueue([
+                    'kind'      => 'status',
+                    'order_id'  => $order->get_id(),
+                    'phone'     => $phone,
+                    'body'      => $body,
+                    'event_key' => 'order-' . $order->get_id() . '-status-' . $new,
+                ]);
+                if ($id) {
+                    $sent = true;
+                    $order->add_order_note('וואטסאפ: נוספה לתור הודעת סטטוס "' . wc_get_order_status_name($new) . '"');
+                }
+            }
         }
 
-        $tpl = WSN_Templates::get('wc-' . $new);
-        if (!$tpl) {
-            return;
-        }
-        $phone = WSN_Phone::to_e164($order->get_billing_phone());
-        if (!$phone || WSN_Contacts::is_unsubscribed($phone)) {
-            return;
-        }
-
-        $body = WSN_Templates::render(WSN_Templates::pick_variant($tpl), $order);
-        $id = WSN_Outbox::enqueue([
-            'kind'      => 'status',
-            'order_id'  => $order->get_id(),
-            'phone'     => $phone,
-            'body'      => $body,
-            'event_key' => 'order-' . $order->get_id() . '-status-' . $new,
+        // תיעוד ביומן "תנועות הזמנה". אם כבר נשלח דרך הצינור הקיים — notified=1
+        // כדי שלא יופיע שוב בתיבת ה-compose (מניעת שליחה כפולה); אחרת notified=0
+        // כדי שניתן יהיה לשלוח ידנית מעמוד ההזמנה.
+        WSN_Item_Events::record([
+            'order_id'   => $order->get_id(),
+            'event_type' => WSN_Item_Events::TYPE_STATUS,
+            'item_name'  => 'סטטוס הזמנה',
+            'old_value'  => wc_get_order_status_name($old),
+            'new_value'  => wc_get_order_status_name($new),
+            'notified'   => $sent ? 1 : 0,
         ]);
-        if ($id) {
-            $order->add_order_note('וואטסאפ: נוספה לתור הודעת סטטוס "' . wc_get_order_status_name($new) . '"');
-        }
     }
 
     // תיקון מספר טלפון בהזמנה (למשל טעות הקלדה) אחרי שהודעה כבר נכנסה לתור —

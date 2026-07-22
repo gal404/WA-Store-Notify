@@ -5,6 +5,7 @@ $statuses = wc_get_order_statuses(); // ['wc-processing' => 'בתהליך', ...]
 $special = [
     'item_removed'   => 'פריט הוסר (אזל מהמלאי)',
     'item_replaced'  => 'פריט הוחלף',
+    'customer_note'  => 'שינוי הערת לקוח',
     'optout_confirm' => 'אישור הסרה מרשימת תפוצה',
 ];
 $post = admin_url('admin-post.php');

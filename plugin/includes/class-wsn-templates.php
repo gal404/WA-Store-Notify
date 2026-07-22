@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 class WSN_Templates
 {
     /** מפתחות תבניות שאינן סטטוס הזמנה */
-    const SPECIAL_KEYS = ['item_added', 'item_removed', 'qty_changed', 'order_changes', 'item_replaced', 'optout_confirm'];
+    const SPECIAL_KEYS = ['item_added', 'item_removed', 'qty_changed', 'order_changes', 'item_replaced', 'customer_note', 'optout_confirm'];
 
     public static function defaults(): array
     {
@@ -57,6 +57,14 @@ class WSN_Templates
                 'enabled'  => 1,
                 'variants' => [
                     "היי {first_name}, בהזמנה #{order_number} הפריט {removed_item} אזל מהמלאי והוחלף ב-{new_item}. אם ההחלפה לא מתאימה — פשוט השב לנו כאן.",
+                ],
+            ],
+            'customer_note' => [
+                'enabled'  => 1,
+                'variants' => [
+                    "היי {first_name}, עודכנה הערה בהזמנה שלך #{order_number}:
+{changes}
+אם יש שאלה — פשוט השב לנו כאן.",
                 ],
             ],
             'optout_confirm' => [

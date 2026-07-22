@@ -12,6 +12,11 @@ class WSN_Item_Events
     const TYPE_QTY     = 'qty_changed';
     const TYPE_ADDED   = 'item_added';
     const TYPE_REMOVED = 'item_removed';
+    const TYPE_STATUS  = 'status_changed';
+    const TYPE_NOTE    = 'note_changed';
+
+    /** רק תנועות-פריטים דורשות בחירת סיבה מהמנהל (סטטוס/הערה — לא) */
+    const REASONED_TYPES = [self::TYPE_QTY, self::TYPE_ADDED, self::TYPE_REMOVED];
 
     /** ברירות מחדל — משמשות עד שהמנהל עורך את הרשימות במסך ההגדרות */
     const DEFAULT_REASONS_REMOVED = "אזל מהמלאי\nלבקשת הלקוח\nללא סיבה";
@@ -72,22 +77,27 @@ class WSN_Item_Events
             'item_name'     => mb_substr((string) ($args['item_name'] ?? ''), 0, 255),
             'qty_before'    => array_key_exists('qty_before', $args) ? $args['qty_before'] : null,
             'qty_after'     => array_key_exists('qty_after', $args) ? $args['qty_after'] : null,
+            'old_value'     => array_key_exists('old_value', $args) ? (string) $args['old_value'] : null,
+            'new_value'     => array_key_exists('new_value', $args) ? (string) $args['new_value'] : null,
+            'notified'      => array_key_exists('notified', $args) ? (int) $args['notified'] : 0,
             'user_id'       => get_current_user_id() ?: null,
             'created_at'    => current_time('mysql'),
         ]);
         return $ok ? (int) $wpdb->insert_id : null;
     }
 
-    /** אירועים שעדיין ממתינים לסיבה מהמנהל */
+    /** אירועים שעדיין ממתינים לסיבה מהמנהל — רק תנועות-פריטים (סטטוס/הערה אין להם סיבה) */
     public static function pending(int $order_id): array
     {
         global $wpdb;
+        $types = self::REASONED_TYPES;
+        $ph = implode(',', array_fill(0, count($types), '%s'));
         return (array) $wpdb->get_results($wpdb->prepare(
             "SELECT id, event_type, item_name, qty_before, qty_after
              FROM " . self::table() . "
-             WHERE order_id = %d AND reason_code IS NULL
+             WHERE order_id = %d AND reason_code IS NULL AND event_type IN ($ph)
              ORDER BY id ASC",
-            $order_id
+            array_merge([$order_id], $types)
         ), ARRAY_A);
     }
 
@@ -158,11 +168,14 @@ class WSN_Item_Events
         }
         // שומרים גם את התווית: אם הרשימה בהגדרות תשתנה, ההיסטוריה תישאר קריאה
         $label = $code === 'other' ? mb_substr($text, 0, 255) : $allowed[$code];
-        return (bool) $wpdb->update(
+        $res = $wpdb->update(
             self::table(),
             ['reason_code' => $code, 'reason_text' => $label],
             ['id' => $event_id]
         );
+        // update מחזיר 0 גם כשהשורה כבר מכילה את אותו ערך (שמירה חוזרת) —
+        // רק false הוא שגיאת SQL אמיתית, ולכן זה מבחן ההצלחה הנכון.
+        return $res !== false;
     }
 
     /** התווית להצגה: מה שנשמר בעת הבחירה, ואם חסר — מהרשימה הנוכחית */
@@ -187,6 +200,10 @@ class WSN_Item_Events
                 return sprintf('נוסף %s (כמות %d)', $name, (int) $e['qty_after']);
             case self::TYPE_REMOVED:
                 return sprintf('הוסר %s (כמות %d)', $name, (int) $e['qty_before']);
+            case self::TYPE_STATUS:
+                return sprintf('סטטוס הזמנה: %s ← %s', (string) ($e['old_value'] ?? ''), (string) ($e['new_value'] ?? ''));
+            case self::TYPE_NOTE:
+                return 'הערת הלקוח עודכנה';
             default:
                 return sprintf('%s: כמות %d ← %d', $name, (int) $e['qty_before'], (int) $e['qty_after']);
         }
