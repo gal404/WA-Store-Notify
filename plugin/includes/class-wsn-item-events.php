@@ -45,12 +45,17 @@ class WSN_Item_Events
         return $out;
     }
 
-    /** קוד יציב לתווית. sanitize_title מרוקן מחרוזות בעברית, ולכן fallback ל-hash */
+    /**
+     * קוד יציב לתווית — חייב להיות ASCII נקי [a-z0-9_-].
+     * sanitize_title בעברית מקודד ל-percent (%d7..), וקוד כזה נשבר גם בהעברה
+     * (URLSearchParams) וגם בסניטייזרים של WP (sanitize_key/sanitize_text_field
+     * מסלקים % / רצפי %XX). לכן כל תווית שאינה slug לטיני פשוט נגזרת ל-hash.
+     */
     public static function code_for(string $label): string
     {
         $slug = sanitize_title($label);
-        if ($slug === '') {
-            $slug = 'r' . substr(md5($label), 0, 10);
+        if ($slug === '' || !preg_match('/^[a-z0-9_-]+$/', $slug)) {
+            $slug = 'r' . substr(md5($label), 0, 12);
         }
         return substr($slug, 0, 30);
     }

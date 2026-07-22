@@ -333,10 +333,10 @@ class WSN_Order_Items
         $ids = [];
         $failed = [];
         foreach ($reasons as $event_id => $r) {
-            // לא sanitize_key: קוד הסיבה של תווית עברית מקודד ב-percent (%d7..)
-            // ו-sanitize_key מסלק את ה-% ומקלקל את ההתאמה לרשימה המורשית.
-            // set_reason מאמת מול whitelist, לכן זה בטוח.
-            $code = sanitize_text_field(wp_unslash($r['code'] ?? ''));
+            // קוד גולמי בכוונה: כל סניטייזר (sanitize_key/sanitize_text_field)
+            // משמיד % ורצפי %XX ומקלקל את ההתאמה. set_reason מאמת מול whitelist
+            // ו-$wpdb->update פרמטרי — לכן קוד גולמי בטוח כאן.
+            $code = (string) wp_unslash($r['code'] ?? '');
             $text = sanitize_text_field(wp_unslash($r['text'] ?? ''));
             if ($code !== '' && WSN_Item_Events::set_reason((int) $event_id, $code, $text)) {
                 $saved++;
@@ -406,7 +406,7 @@ class WSN_Order_Items
         if (!$e || (int) $e['order_id'] !== $order_id) {
             wp_send_json_error('התנועה לא נמצאה');
         }
-        $code = sanitize_text_field(wp_unslash($_POST['code'] ?? '')); // ראה הערה ב-ajax_save_reasons
+        $code = (string) wp_unslash($_POST['code'] ?? ''); // גולמי בכוונה — ראה הערה ב-ajax_save_reasons
         $text = sanitize_text_field(wp_unslash($_POST['text'] ?? ''));
         if ($code === '' || !WSN_Item_Events::set_reason($event_id, $code, $text)) {
             wp_send_json_error('שמירת הסיבה נכשלה');
