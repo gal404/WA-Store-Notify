@@ -300,16 +300,11 @@ class WSN_Order_Items
             if (WSN_Change_Composer::queue($order, $events, $body)) {
                 $queued++;
             }
-            // שמירת הנוסח כתבנית קבועה לסוג הזה (רק כשכל השינויים מאותו סוג —
-            // אחרת לא ברור לאיזה סוג הנוסח שייך)
+            // שמירת הנוסח כתבנית קבועה — אותו מפתח שבו compose() ישתמש (כולל
+            // הבחנה בין הסרה יחידה למרובה), כדי שהנוסח באמת ייטען בפעם הבאה
             if (!empty($m['save_template'])) {
-                $types = array_unique(array_map(
-                    static fn($e) => WSN_Change_Composer::type_for_event($e['event_type']),
-                    $events
-                ));
-                $target = count($types) === 1 ? reset($types) : 'order_changes';
                 WSN_Change_Composer::save_template(
-                    $target,
+                    WSN_Change_Composer::template_key_for($events),
                     WSN_Change_Composer::templatize($body, $order, $events)
                 );
             }

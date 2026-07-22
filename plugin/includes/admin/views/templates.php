@@ -3,10 +3,11 @@
 // כל סטטוסי ההזמנה הקיימים (כולל מותאמים אישית) + התבניות המיוחדות
 $statuses = wc_get_order_statuses(); // ['wc-processing' => 'בתהליך', ...]
 $special = [
-    'item_removed'   => 'פריט הוסר (אזל מהמלאי)',
-    'item_replaced'  => 'פריט הוחלף',
-    'customer_note'  => 'שינוי הערת לקוח',
-    'optout_confirm' => 'אישור הסרה מרשימת תפוצה',
+    'item_removed'       => 'פריט אחד אזל מהמלאי',
+    'item_removed_multi' => 'כמה פריטים אזלו מהמלאי (רשימה)',
+    'item_replaced'      => 'פריט הוחלף',
+    'customer_note'      => 'שינוי הערת לקוח',
+    'optout_confirm'     => 'אישור הסרה מרשימת תפוצה',
 ];
 $post = admin_url('admin-post.php');
 
@@ -40,6 +41,7 @@ $render_card = function (string $key, string $label, array $templates) {
     <?php WSN_Admin::nav('wsn-templates'); ?>
     <p class="description">
         placeholders זמינים: <code dir="ltr">{first_name} {last_name} {order_number} {order_total} {items} {status_name} {tracking_number} {tracking_url} {store_name}</code>.
+        בהודעות על שינויים גם: <code dir="ltr">{removed_item} {removed_list} {new_item} {changes}</code> (<span dir="rtl">{removed_list} = רשימה ממוספרת של הפריטים שאזלו</span>).
         שורה עם <code dir="ltr">{tracking_number}</code> ריק — נמחקת אוטומטית.
         "שלח לי לבדיקה" מדלג בתור לפני הכול ומראה כאן בזמן אמת מתי היא נשלחה בפועל — דרך טובה לוודא שהכול עובד מקצה לקצה.
     </p>

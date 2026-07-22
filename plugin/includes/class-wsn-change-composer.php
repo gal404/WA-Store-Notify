@@ -67,6 +67,45 @@ class WSN_Change_Composer
     }
 
     /**
+     * בוחר את מפתח התבנית לצירוף השינויים: תבנית של הסוג היחיד, ולהסרה מרובה
+     * תבנית ייעודית (item_removed_multi). ערבוב סוגים → התבנית המאוחדת.
+     */
+    public static function template_key_for(array $events): string
+    {
+        $types = array_unique(array_map(
+            static fn($e) => self::type_for_event($e['event_type']),
+            $events
+        ));
+        if (count($types) !== 1) {
+            return 'order_changes';
+        }
+        $key = reset($types);
+        if ($key === 'item_removed' && count(self::removed_events($events)) > 1) {
+            return 'item_removed_multi';
+        }
+        return $key;
+    }
+
+    /** רשימת אירועי ההסרה מתוך קבוצת האירועים */
+    private static function removed_events(array $events): array
+    {
+        return array_values(array_filter(
+            $events,
+            static fn($e) => $e['event_type'] === WSN_Item_Events::TYPE_REMOVED
+        ));
+    }
+
+    /** רשימה ממוספרת של שמות הפריטים שהוסרו: "1. ...\n2. ..." */
+    public static function removed_list(array $events): string
+    {
+        $out = [];
+        foreach (self::removed_events($events) as $i => $e) {
+            $out[] = ($i + 1) . '. ' . (string) $e['item_name'];
+        }
+        return implode("\n", $out);
+    }
+
+    /**
      * הודעה אחת שמאגדת כמה שינויים. אם כל השינויים מאותו סוג, משתמשים
      * בתבנית של אותו סוג; אחרת בתבנית המאוחדת.
      */
@@ -75,12 +114,7 @@ class WSN_Change_Composer
         if (!$events) {
             return '';
         }
-        $types = array_unique(array_map(
-            static fn($e) => self::type_for_event($e['event_type']),
-            $events
-        ));
-        $tpl_key = count($types) === 1 ? reset($types) : 'order_changes';
-
+        $tpl_key = self::template_key_for($events);
         $tpl = WSN_Templates::get($tpl_key) ?: WSN_Templates::get('order_changes');
         if (!$tpl) {
             return '';
@@ -94,6 +128,8 @@ class WSN_Change_Composer
                 'changes'      => implode("\n", array_map(static fn($l) => '• ' . $l, $lines)),
                 'changes_list' => implode(', ', $lines),
                 'removed_item' => self::first_name_of($events, WSN_Item_Events::TYPE_REMOVED),
+                'removed_list' => self::removed_list($events),
+                'removed_count' => (string) count(self::removed_events($events)),
                 'new_item'     => self::first_name_of($events, WSN_Item_Events::TYPE_ADDED),
             ]
         );
@@ -107,13 +143,17 @@ class WSN_Change_Composer
     public static function templatize(string $body, WC_Order $order, array $events): string
     {
         $lines = array_map([__CLASS__, 'line'], $events);
+        // מהארוך לקצר: רשימת ההסרה (בלוק רב-שורתי) קודם, אחר כך בלוקים ושמות
         $map = [
+            self::removed_list($events)                                  => '{removed_list}',
             implode("\n", array_map(static fn($l) => '• ' . $l, $lines)) => '{changes}',
             implode(', ', $lines)                                        => '{changes_list}',
             (string) $order->get_order_number()                          => '{order_number}',
             trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()) => '{first_name} {last_name}',
             (string) $order->get_billing_first_name()                    => '{first_name}',
             (string) $order->get_billing_last_name()                     => '{last_name}',
+            self::first_name_of($events, WSN_Item_Events::TYPE_REMOVED)   => '{removed_item}',
+            self::first_name_of($events, WSN_Item_Events::TYPE_ADDED)     => '{new_item}',
             (string) get_bloginfo('name')                                => '{store_name}',
         ];
         foreach ($map as $value => $placeholder) {
@@ -128,7 +168,8 @@ class WSN_Change_Composer
     /** שומר נוסח כתבנית הקבועה של סוג השינוי (יוצר אם עוד לא קיימת) */
     public static function save_template(string $type, string $template_body): bool
     {
-        $key = array_key_exists($type, self::types()) ? $type : 'order_changes';
+        $valid = array_merge(array_keys(self::types()), WSN_Templates::SPECIAL_KEYS);
+        $key = in_array($type, $valid, true) ? $type : 'order_changes';
         if (trim($template_body) === '') {
             return false;
         }

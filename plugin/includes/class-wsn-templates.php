@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 class WSN_Templates
 {
     /** מפתחות תבניות שאינן סטטוס הזמנה */
-    const SPECIAL_KEYS = ['item_added', 'item_removed', 'qty_changed', 'order_changes', 'item_replaced', 'customer_note', 'optout_confirm'];
+    const SPECIAL_KEYS = ['item_added', 'item_removed', 'item_removed_multi', 'qty_changed', 'order_changes', 'item_replaced', 'customer_note', 'optout_confirm'];
 
     public static function defaults(): array
     {
@@ -50,7 +50,24 @@ class WSN_Templates
             'item_removed' => [
                 'enabled'  => 1,
                 'variants' => [
-                    "היי {first_name}, לצערנו הפריט {removed_item} מהזמנה #{order_number} אזל מהמלאי. ההזמנה עודכנה בהתאם ונשמח לעזור אם יש שאלות.",
+                    "היי
+*הזמנה #{order_number}*
+
+המוצר: {removed_item} - *אזל מהמלאי* - וירד מההזמנה.
+כמובן שלא יבוצע חיוב עבור המוצר החסר.
+תודה על ההבנה, *צוות פינוקים.*",
+                ],
+            ],
+            'item_removed_multi' => [
+                'enabled'  => 1,
+                'variants' => [
+                    "היי
+*הזמנה #{order_number}*
+
+המוצרים הבאים *אזלו מהמלאי* וירדו מההזמנה:
+{removed_list}
+כמובן שלא יבוצע חיוב עבור המוצרים החסרים.
+תודה על ההבנה, *צוות פינוקים.*",
                 ],
             ],
             'item_replaced' => [
