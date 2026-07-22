@@ -5,3 +5,6 @@ bridge/.wwebjs_cache/
 bridge/.env
 *.log
 /wa-store-notify.zip
+
+# build artifacts
+*.zip
