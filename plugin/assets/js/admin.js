@@ -192,6 +192,71 @@
         }
         checkPending(); // גם בטעינת העמוד, אם נשארו תנועות בלי סיבה
 
+        // ---- מחיקת תנועה מהיומן ----
+        eventsRoot.addEventListener('click', function (e) {
+            var del = e.target.closest ? e.target.closest('.wsn-ev-del') : null;
+            if (!del) { return; }
+            e.preventDefault();
+            if (!window.confirm('למחוק את התנועה מהיומן? הפעולה אינה הפיכה.')) { return; }
+            del.disabled = true;
+            var id = del.dataset.id;
+            post('wsn_delete_item_event', { event_id: id }).then(function (d) {
+                if (!d || !d.success) {
+                    del.disabled = false;
+                    window.alert((d && d.data) ? d.data : 'מחיקה נכשלה');
+                    return;
+                }
+                var row = eventsRoot.querySelector('tr[data-event-id="' + id + '"]');
+                if (row) { row.remove(); }
+                // אם התנועה הייתה גם ברשימת "שינויים שטרם דווחו" — להסיר משם
+                var chk = eventsRoot.querySelector('.wsn-ev-check[value="' + id + '"]');
+                if (chk) { var li = chk.closest('li'); if (li) { li.remove(); } }
+            }).catch(function () {
+                del.disabled = false;
+                window.alert('שגיאת רשת');
+            });
+        });
+
+        // ---- עריכת/הגדרת סיבה של תנועה קיימת ----
+        eventsRoot.addEventListener('change', function (e) {
+            if (!e.target.classList || !e.target.classList.contains('wsn-reason-sel')) { return; }
+            var other = e.target.parentElement.querySelector('.wsn-reason-other-txt');
+            if (other) { other.hidden = e.target.value !== 'other'; }
+        });
+        eventsRoot.addEventListener('click', function (e) {
+            var t = e.target;
+            var cell = t.closest ? t.closest('.wsn-reason-cell') : null;
+            if (!cell) { return; }
+            var view = cell.querySelector('.wsn-reason-view');
+            var editor = cell.querySelector('.wsn-reason-editor');
+            if (t.classList.contains('wsn-reason-edit')) {
+                e.preventDefault();
+                view.hidden = true; editor.hidden = false;
+            } else if (t.classList.contains('wsn-reason-cancel')) {
+                e.preventDefault();
+                editor.hidden = true; view.hidden = false;
+            } else if (t.classList.contains('wsn-reason-save-edit')) {
+                e.preventDefault();
+                var sel = cell.querySelector('.wsn-reason-sel');
+                var otherInput = cell.querySelector('.wsn-reason-other-txt');
+                t.disabled = true;
+                post('wsn_edit_item_reason', {
+                    event_id: cell.dataset.eventId,
+                    code: sel.value,
+                    text: otherInput ? otherInput.value : ''
+                }).then(function (d) {
+                    t.disabled = false;
+                    if (!d || !d.success) { window.alert((d && d.data) ? d.data : 'שמירה נכשלה'); return; }
+                    var pill = view.querySelector('.wsn-pill');
+                    if (pill) {
+                        pill.className = 'wsn-pill wsn-pill-order';
+                        pill.textContent = (d.data && d.data.label) ? d.data.label : sel.options[sel.selectedIndex].text;
+                    }
+                    editor.hidden = true; view.hidden = false;
+                }).catch(function () { t.disabled = false; window.alert('שגיאת רשת'); });
+            }
+        });
+
         // ---- בניית הודעה מהשינויים שנבחרו ----
         var buildBtn = eventsRoot.querySelector('.wsn-compose-build');
         if (buildBtn) {

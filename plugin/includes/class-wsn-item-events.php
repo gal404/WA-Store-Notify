@@ -138,6 +138,13 @@ class WSN_Item_Events
         return $row ?: null;
     }
 
+    /** מחיקת תנועה מהיומן. שורה שכבר נמחקה אינה נחשבת ככשל (רק false = שגיאת SQL) */
+    public static function delete(int $id): bool
+    {
+        global $wpdb;
+        return $wpdb->delete(self::table(), ['id' => $id], ['%d']) !== false;
+    }
+
     /** כל התנועות של ההזמנה, לתצוגה בעמוד ההזמנה */
     public static function for_order(int $order_id): array
     {

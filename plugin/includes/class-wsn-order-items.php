@@ -28,6 +28,8 @@ class WSN_Order_Items
         add_action('wp_ajax_wsn_save_item_reasons', [__CLASS__, 'ajax_save_reasons']);
         add_action('wp_ajax_wsn_compose_changes', [__CLASS__, 'ajax_compose_changes']);
         add_action('wp_ajax_wsn_queue_changes', [__CLASS__, 'ajax_queue_changes']);
+        add_action('wp_ajax_wsn_delete_item_event', [__CLASS__, 'ajax_delete_event']);
+        add_action('wp_ajax_wsn_edit_item_reason', [__CLASS__, 'ajax_edit_reason']);
     }
 
     /** מצב הפריטים הנוכחי כפי שהוא בהזמנה: item_id => פרטים */
@@ -369,6 +371,47 @@ class WSN_Order_Items
         wp_send_json_success(['saved' => $saved, 'auto_queued' => $auto_queued]);
     }
 
+    /** מחיקת תנועה מהיומן (מאמת שהיא שייכת להזמנה הנוכחית) */
+    public static function ajax_delete_event(): void
+    {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        check_ajax_referer('wsn_item_events_' . $order_id);
+        if (!current_user_can('manage_wa_notify')) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $event_id = (int) ($_POST['event_id'] ?? 0);
+        $e = WSN_Item_Events::get($event_id);
+        if (!$e || (int) $e['order_id'] !== $order_id) {
+            wp_send_json_error('התנועה לא נמצאה');
+        }
+        if (!WSN_Item_Events::delete($event_id)) {
+            wp_send_json_error('מחיקה נכשלה');
+        }
+        wp_send_json_success(['deleted' => $event_id]);
+    }
+
+    /** עריכת/הגדרת סיבה לתנועת פריט קיימת (לא שולח הודעה — רק מעדכן את היומן) */
+    public static function ajax_edit_reason(): void
+    {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        check_ajax_referer('wsn_item_events_' . $order_id);
+        if (!current_user_can('manage_wa_notify')) {
+            wp_send_json_error('אין הרשאה', 403);
+        }
+        $event_id = (int) ($_POST['event_id'] ?? 0);
+        $e = WSN_Item_Events::get($event_id);
+        if (!$e || (int) $e['order_id'] !== $order_id) {
+            wp_send_json_error('התנועה לא נמצאה');
+        }
+        $code = sanitize_key($_POST['code'] ?? '');
+        $text = sanitize_text_field(wp_unslash($_POST['text'] ?? ''));
+        if ($code === '' || !WSN_Item_Events::set_reason($event_id, $code, $text)) {
+            wp_send_json_error('שמירת הסיבה נכשלה');
+        }
+        $updated = WSN_Item_Events::get($event_id) ?: $e;
+        wp_send_json_success(['label' => WSN_Item_Events::reason_label($updated)]);
+    }
+
     public static function flag_dirty(int $order_id, $items): void
     {
         $order = wc_get_order($order_id);
@@ -472,25 +515,44 @@ class WSN_Order_Items
                 <p class="description">אין עדיין תנועות. שינוי כמות, הוספה/הסרה של פריט, שינוי סטטוס או שינוי הערת-לקוח יירשמו כאן אוטומטית.</p>
             <?php else: ?>
                 <table class="widefat striped">
-                    <thead><tr><th>מתי</th><th>תנועה</th><th>סיבה</th><th>מי</th></tr></thead>
+                    <thead><tr><th>מתי</th><th>תנועה</th><th>סיבה</th><th>מי</th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($events as $e):
                         $user = $e['user_id'] ? get_userdata((int) $e['user_id']) : null;
                         $reason = WSN_Item_Events::reason_label($e);
                         ?>
-                        <tr>
+                        <tr data-event-id="<?php echo (int) $e['id']; ?>">
                             <td><?php echo esc_html(mysql2date('d/m H:i', $e['created_at'])); ?></td>
                             <td><?php echo esc_html(WSN_Item_Events::describe($e)); ?></td>
-                            <td>
-                                <?php if ($reason !== ''): ?>
-                                    <span class="wsn-pill wsn-pill-order"><?php echo esc_html($reason); ?></span>
-                                <?php elseif (in_array($e['event_type'], WSN_Item_Events::REASONED_TYPES, true)): ?>
-                                    <span class="wsn-pill wsn-pill-queued">ממתין לסיבה</span>
-                                <?php else: ?>
+                            <?php $is_reasoned = in_array($e['event_type'], WSN_Item_Events::REASONED_TYPES, true); ?>
+                            <td class="wsn-reason-cell"<?php echo $is_reasoned ? ' data-event-id="' . (int) $e['id'] . '"' : ''; ?>>
+                                <?php if (!$is_reasoned): ?>
                                     —
+                                <?php else: ?>
+                                    <span class="wsn-reason-view">
+                                        <?php if ($reason !== ''): ?>
+                                            <span class="wsn-pill wsn-pill-order"><?php echo esc_html($reason); ?></span>
+                                        <?php else: ?>
+                                            <span class="wsn-pill wsn-pill-queued">ממתין לסיבה</span>
+                                        <?php endif; ?>
+                                        <button type="button" class="button-link wsn-reason-edit">ערוך</button>
+                                    </span>
+                                    <span class="wsn-reason-editor" hidden>
+                                        <select class="wsn-reason-sel">
+                                            <?php foreach (WSN_Item_Events::reasons($e['event_type']) as $rcode => $rlabel): ?>
+                                                <option value="<?php echo esc_attr($rcode); ?>" <?php selected((string) $e['reason_code'], $rcode); ?>><?php echo esc_html($rlabel); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <input type="text" class="wsn-reason-other-txt" placeholder="פרט את הסיבה"
+                                               value="<?php echo esc_attr((string) $e['reason_code'] === 'other' ? (string) $e['reason_text'] : ''); ?>"
+                                               <?php echo (string) $e['reason_code'] === 'other' ? '' : 'hidden'; ?>>
+                                        <button type="button" class="button button-small wsn-reason-save-edit">שמור</button>
+                                        <button type="button" class="button-link wsn-reason-cancel">בטל</button>
+                                    </span>
                                 <?php endif; ?>
                             </td>
                             <td><?php echo esc_html($user ? $user->display_name : '—'); ?></td>
+                            <td><button type="button" class="button-link wsn-ev-del" data-id="<?php echo (int) $e['id']; ?>" title="מחק תנועה" style="color:#b32d2e">מחק</button></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
