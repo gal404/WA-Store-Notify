@@ -58,13 +58,24 @@ class WSN_Tracking
             return ['number' => $manual, 'url' => trim((string) $order->get_meta('_wsn_tracking_url'))];
         }
 
-        // 2. meta key מוגדר בהגדרות
+        // 2. CSLFW / קרגו — המבנה הוא [ מספר_מעקב => [driver_name, status, ...] ],
+        // כלומר מספר המעקב הוא *המפתח* של הרשומה. מזוהה אוטומטית, בלי הגדרה.
+        $cslfw = self::extract_cslfw($order->get_meta('cslfw_shipping'));
+        if ($cslfw !== '') {
+            return ['number' => $cslfw, 'url' => ''];
+        }
+
+        // 3. meta key מוגדר בהגדרות
         $key = trim((string) WSN_Settings::get('tracking_meta_key'));
         if ($key === '') {
             return ['number' => '', 'url' => ''];
         }
         $val = $order->get_meta($key);
 
+        // אם המפתח המוגדר מצביע גם הוא על מבנה מסוג CSLFW
+        if ($key === 'cslfw_shipping') {
+            return ['number' => self::extract_cslfw($val), 'url' => ''];
+        }
         // תמיכה מיוחדת ב-WooCommerce Shipment Tracking (מערך רשומות)
         if ($key === '_wc_shipment_tracking_items' && is_array($val) && $val) {
             $last = end($val);
@@ -77,6 +88,34 @@ class WSN_Tracking
             return ['number' => trim((string) $val), 'url' => ''];
         }
         return ['number' => '', 'url' => ''];
+    }
+
+    /** מחלץ מספר מעקב ממבנה CSLFW: המפתח של הרשומה האחרונה (המספר שנוצר לאחרונה) */
+    private static function extract_cslfw($val): string
+    {
+        if (!is_array($val) || !$val) {
+            return '';
+        }
+        $keys = array_keys($val);
+        $num = end($keys);
+        return $num !== false ? trim((string) $num) : '';
+    }
+
+    /** האם ההזמנה באיסוף עצמי (לפי method_id של שיטת המשלוח) */
+    public static function is_pickup(WC_Order $order): bool
+    {
+        foreach ($order->get_shipping_methods() as $sm) {
+            if ($sm->get_method_id() === 'local_pickup') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** תווית סוג משלוח לשימוש בתבניות: "איסוף עצמי" / "משלוח" */
+    public static function shipping_type_label(WC_Order $order): string
+    {
+        return self::is_pickup($order) ? 'איסוף עצמי' : 'משלוח';
     }
 
     public static function add_metabox(): void

@@ -152,6 +152,7 @@ class WSN_Templates
                 'items'           => implode(', ', $items),
                 'status_name'     => wc_get_order_status_name($status),
                 'shipping_method' => $order->get_shipping_method(),
+                'shipping_type'   => '',
                 'tracking_number' => '',
                 'tracking_url'    => '',
             ];
@@ -159,6 +160,7 @@ class WSN_Templates
                 $t = WSN_Tracking::get($order);
                 $vals['tracking_number'] = $t['number'];
                 $vals['tracking_url']    = $t['url'];
+                $vals['shipping_type']   = WSN_Tracking::shipping_type_label($order);
             }
         }
         $vals = array_merge($vals, $extra);
