@@ -373,3 +373,30 @@
 .wsn-compose-body { width: 100%; margin-bottom: 8px; }
 .wsn-modes td { padding: 2px 0 2px 18px; }
 .wsn-modes label { margin-inline-end: 12px; }
+
+/* ---------- מסך הודעות ממתינות ---------- */
+.wsn-pending-bar { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+.wsn-draft { margin-bottom: 14px; padding: 14px 16px; }
+.wsn-draft-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.wsn-draft-name { font-size: 14px; color: var(--wsn-ink, #0f2e2b); }
+.wsn-draft-club { margin-inline-start: auto; }
+.wsn-draft-body { width: 100%; border-radius: 8px; font-size: 14px; line-height: 1.6; }
+.wsn-draft-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+@media screen and (max-width: 600px) {
+    .wsn-draft-actions .button { flex: 1; text-align: center; }
+    .wsn-draft-club { margin-inline-start: 0; width: 100%; }
+}
+
+/* ---------- מסך תבניות: שורות מכווצות ---------- */
+.wsn-tpl-group { background: #fff; border: 1px solid var(--wsn-border, #dfe5e3); border-radius: 10px; overflow: hidden; margin: 8px 0 20px; }
+.wsn-tpl-row + .wsn-tpl-row { border-top: 1px solid var(--wsn-border, #dfe5e3); }
+.wsn-tpl-toggle { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 12px 14px; cursor: pointer; text-align: right; font-size: 14px; color: var(--wsn-ink, #0f2e2b); font-family: inherit; }
+.wsn-tpl-toggle:hover { background: var(--wsn-accent-soft, #e6f2f0); }
+.wsn-tpl-caret { color: var(--wsn-accent, #0b7a6e); font-size: 12px; width: 12px; flex: none; }
+.wsn-tpl-state { font-size: 13px; flex: none; }
+.wsn-tpl-title { font-weight: 600; }
+.wsn-tpl-toggle code { margin-inline-start: auto; direction: ltr; font-size: 11px; color: #8a9a95; font-weight: normal; }
+.wsn-tpl-body { padding: 8px 14px 14px; border-top: 1px dashed var(--wsn-border, #dfe5e3); }
+.wsn-tpl-enable { display: block; margin: 8px 0 10px; }
+.wsn-tpl-body .wsn-variants textarea { width: 100%; margin-bottom: 6px; border-radius: 7px; }
+.wsn-show-hidden { color: var(--wsn-accent, #0b7a6e); font-size: 13px; }

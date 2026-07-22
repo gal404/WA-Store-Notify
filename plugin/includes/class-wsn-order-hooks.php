@@ -26,40 +26,33 @@ class WSN_Order_Hooks
             WSN_Contacts::record_paid_order($order);
         }
 
-        // ביטול הזמנה הוא סוג נפרד בהגדרות; שאר הסטטוסים תחת 'שינוי סטטוס'
-        $change_type = ($new === 'cancelled') ? 'order_cancelled' : 'order_status';
-
-        // שליחה אוטומטית דרך הצינור הקיים (תבנית wc-{status})
-        $sent = false;
-        if (WSN_Change_Composer::is_auto($change_type)) {
-            $tpl = WSN_Templates::get('wc-' . $new);
-            $phone = WSN_Phone::to_e164($order->get_billing_phone());
-            if ($tpl && $phone && !WSN_Contacts::is_unsubscribed($phone)) {
-                $body = WSN_Templates::render(WSN_Templates::pick_variant($tpl), $order);
-                $id = WSN_Outbox::enqueue([
-                    'kind'      => 'status',
-                    'order_id'  => $order->get_id(),
-                    'phone'     => $phone,
-                    'body'      => $body,
-                    'event_key' => 'order-' . $order->get_id() . '-status-' . $new,
-                ]);
-                if ($id) {
-                    $sent = true;
-                    $order->add_order_note('וואטסאפ: נוספה לתור הודעת סטטוס "' . wc_get_order_status_name($new) . '"');
-                }
+        // הודעת סטטוס נוצרת כ*טיוטה לאישור* — לא נשלחת מעצמה. תנאי: תבנית מופעלת
+        // לסטטוס, טלפון תקין, ולקוח שלא הוסר מהתפוצה. המנהל מאשר במסך "הודעות ממתינות".
+        $tpl = WSN_Templates::get('wc-' . $new);
+        $phone = WSN_Phone::to_e164($order->get_billing_phone());
+        if ($tpl && $phone && !WSN_Contacts::is_unsubscribed($phone)) {
+            $body = WSN_Templates::render(WSN_Templates::pick_variant($tpl), $order);
+            $id = WSN_Outbox::enqueue([
+                'kind'      => 'status',
+                'order_id'  => $order->get_id(),
+                'phone'     => $phone,
+                'body'      => $body,
+                'status'    => 'draft',
+                'event_key' => 'order-' . $order->get_id() . '-status-' . $new,
+            ]);
+            if ($id) {
+                $order->add_order_note('וואטסאפ: הוכנה טיוטת הודעת סטטוס "' . wc_get_order_status_name($new) . '" — ממתינה לאישור');
             }
         }
 
-        // תיעוד ביומן "תנועות הזמנה". אם כבר נשלח דרך הצינור הקיים — notified=1
-        // כדי שלא יופיע שוב בתיבת ה-compose (מניעת שליחה כפולה); אחרת notified=0
-        // כדי שניתן יהיה לשלוח ידנית מעמוד ההזמנה.
+        // תיעוד ביומן "תנועות הזמנה" (notified=1 — ההודעה כבר קיימת כטיוטה)
         WSN_Item_Events::record([
             'order_id'   => $order->get_id(),
             'event_type' => WSN_Item_Events::TYPE_STATUS,
             'item_name'  => 'סטטוס הזמנה',
             'old_value'  => wc_get_order_status_name($old),
             'new_value'  => wc_get_order_status_name($new),
-            'notified'   => $sent ? 1 : 0,
+            'notified'   => 1,
         ]);
     }
 

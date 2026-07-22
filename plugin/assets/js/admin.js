@@ -4,15 +4,47 @@
     // הוספת נוסח (וריאנט) — כפתור "+ נוסח נוסף"
     document.addEventListener('click', function (e) {
         if (!e.target.classList.contains('wsn-add-variant')) return;
-        var wrap = e.target.closest('.wsn-card, form').querySelector('.wsn-variants');
+        var scope = e.target.closest('.wsn-tpl-row, .wsn-card, form');
+        var wrap = scope && scope.querySelector('.wsn-variants');
         if (!wrap) return;
         var last = wrap.querySelector('textarea');
         var ta = document.createElement('textarea');
         ta.name = last ? last.name : 'variants[]';
-        ta.rows = 2;
+        ta.rows = 3;
         ta.dir = 'rtl';
         wrap.appendChild(ta);
         ta.focus();
+    });
+
+    // תבניות — פתיחה/סגירה של שורה מכווצת
+    document.addEventListener('click', function (e) {
+        var toggle = e.target.closest ? e.target.closest('.wsn-tpl-toggle') : null;
+        if (!toggle) return;
+        var body = toggle.parentElement.querySelector('.wsn-tpl-body');
+        if (!body) return;
+        var opening = body.hidden;
+        body.hidden = !opening;
+        toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+        var caret = toggle.querySelector('.wsn-tpl-caret');
+        if (caret) { caret.textContent = opening ? '▾' : '▸'; }
+    });
+
+    // תבניות — הצגת סטטוסים מוסתרים
+    document.addEventListener('click', function (e) {
+        if (!e.target.classList.contains('wsn-show-hidden')) return;
+        var grp = document.querySelector('.wsn-hidden-status');
+        if (grp) { grp.hidden = false; }
+        e.target.style.display = 'none';
+    });
+
+    // תבניות — עדכון חיווי מופעל/כבוי בזמן סימון
+    document.addEventListener('change', function (e) {
+        if (!e.target.matches || !e.target.matches('.wsn-tpl-enable input')) return;
+        var row = e.target.closest('.wsn-tpl-row');
+        var state = row && row.querySelector('.wsn-tpl-state');
+        if (!state) return;
+        state.className = 'wsn-tpl-state ' + (e.target.checked ? 'is-on' : 'is-off');
+        state.textContent = e.target.checked ? '✅' : '⚪';
     });
 
     // "שלח לי לבדיקה" — נוסף לתור בעדיפות עליונה, ואז נבדק בזמן אמת עד שנשלח/נכשל
@@ -323,11 +355,69 @@
                 });
                 post('wsn_queue_changes', extra).then(function (d) {
                     if (!d.success) { composeMsg.textContent = 'שגיאה: ' + (d.data || ''); btn.disabled = false; return; }
-                    composeMsg.textContent = 'נוסף לתור ✔';
+                    composeMsg.textContent = 'נוסף לאישור ✔';
                     location.reload();
                 }).catch(function (e) { composeMsg.textContent = 'שגיאה: ' + e.message; btn.disabled = false; });
             });
         }
+    }
+
+    // ---- מסך "הודעות ממתינות" — אישור/עריכה/מחיקה של טיוטות ----
+    var pendingRoot = document.querySelector('.wsn-pending');
+    if (pendingRoot) {
+        var pendingBar = pendingRoot.querySelector('.wsn-pending-msg');
+
+        function pPost(action, data) {
+            var body = new URLSearchParams({ action: action, nonce: WSN.nonce });
+            Object.keys(data || {}).forEach(function (k) {
+                if (Array.isArray(data[k])) { data[k].forEach(function (v) { body.append(k + '[]', v); }); }
+                else { body.append(k, data[k]); }
+            });
+            return fetch(WSN.ajax, { method: 'POST', body: body }).then(function (r) { return r.json(); });
+        }
+
+        function removeCard(card) {
+            card.remove();
+            if (!pendingRoot.querySelector('.wsn-draft')) { location.reload(); }
+        }
+
+        pendingRoot.addEventListener('click', function (e) {
+            var t = e.target;
+            var card = t.closest ? t.closest('.wsn-draft') : null;
+
+            if (t.classList.contains('wsn-draft-send') && card) {
+                var msg = card.querySelector('.wsn-draft-msg');
+                t.disabled = true; msg.textContent = 'שולח…';
+                pPost('wsn_draft_approve', { ids: [card.dataset.id], body: card.querySelector('.wsn-draft-body').value }).then(function (d) {
+                    if (!d || !d.success) { msg.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; return; }
+                    removeCard(card);
+                }).catch(function () { msg.textContent = 'שגיאת רשת'; t.disabled = false; });
+
+            } else if (t.classList.contains('wsn-draft-discard') && card) {
+                if (!window.confirm('למחוק את ההודעה? היא לא תישלח.')) { return; }
+                var msg2 = card.querySelector('.wsn-draft-msg');
+                t.disabled = true; msg2.textContent = 'מוחק…';
+                pPost('wsn_draft_discard', { ids: [card.dataset.id] }).then(function (d) {
+                    if (!d || !d.success) { msg2.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; return; }
+                    removeCard(card);
+                }).catch(function () { msg2.textContent = 'שגיאת רשת'; t.disabled = false; });
+
+            } else if (t.classList.contains('wsn-approve-all')) {
+                var cards = Array.prototype.slice.call(pendingRoot.querySelectorAll('.wsn-draft'));
+                if (!cards.length) { return; }
+                if (!window.confirm('לשלוח את כל ' + cards.length + ' ההודעות?')) { return; }
+                t.disabled = true; pendingBar.textContent = 'שולח הכל…';
+                var saves = cards.map(function (c) {
+                    return pPost('wsn_draft_save', { id: c.dataset.id, body: c.querySelector('.wsn-draft-body').value });
+                });
+                Promise.all(saves).then(function () {
+                    return pPost('wsn_draft_approve', { ids: cards.map(function (c) { return c.dataset.id; }) });
+                }).then(function (d) {
+                    if (d && d.success) { location.reload(); }
+                    else { pendingBar.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; }
+                }).catch(function () { pendingBar.textContent = 'שגיאת רשת'; t.disabled = false; });
+            }
+        });
     }
 
     // חישוב קהל יעד להערכת קמפיין (חי)

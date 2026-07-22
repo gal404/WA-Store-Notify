@@ -186,23 +186,14 @@ class WSN_Order_Items
             $old = (string) $fresh->get_customer_note();
         }
 
-        $auto = WSN_Change_Composer::is_auto('customer_note');
-        $id = WSN_Item_Events::record([
+        WSN_Item_Events::record([
             'order_id'   => $order->get_id(),
             'event_type' => WSN_Item_Events::TYPE_NOTE,
             'item_name'  => 'הערת לקוח',
             'old_value'  => $old,
             'new_value'  => $new,
-            'notified'   => 0, // תמיד ניתן לשליחה; אם auto — נשלח מיד למטה ומסומן
+            'notified'   => 0, // יופיע בתיבת "שינויים שטרם דווחו" לבנייה ידנית
         ]);
-
-        // אין להערה שלב "סיבה", לכן במצב אוטומטי שולחים מיד (queue מסמן notified)
-        if ($auto && $id) {
-            $ev = WSN_Item_Events::get($id);
-            if ($ev) {
-                WSN_Change_Composer::queue($order, [$ev]);
-            }
-        }
     }
 
     public static function ajax_pending_events(): void
@@ -312,7 +303,7 @@ class WSN_Order_Items
         if (!$queued) {
             wp_send_json_error('שום הודעה לא נוספה לתור (ייתכן שהלקוח הוסר מרשימת התפוצה או שאין טלפון תקין)');
         }
-        $order->add_order_note(sprintf('וואטסאפ: %d הודעות על שינויים נוספו לתור', $queued));
+        $order->add_order_note(sprintf('וואטסאפ: %d הודעות על שינויים נוספו לאישור', $queued));
         wp_send_json_success(['queued' => $queued]);
     }
 
@@ -349,24 +340,9 @@ class WSN_Order_Items
             ]);
         }
 
-        // שליחה אוטומטית — רק לסוגים שסומנו כאוטומטיים בהגדרות, ורק עכשיו
-        // (אחרי בחירת הסיבה) כדי שההודעה תוכל לכלול אותה.
-        $auto_queued = 0;
-        $order = wc_get_order($order_id);
-        if ($order instanceof WC_Order && $ids) {
-            $auto = [];
-            foreach (self::events_for($order_id, $ids) as $e) {
-                if ((int) $e['notified'] === 0
-                    && WSN_Change_Composer::is_auto(WSN_Change_Composer::type_for_event($e['event_type']))) {
-                    $auto[] = $e;
-                }
-            }
-            if ($auto && WSN_Change_Composer::queue($order, $auto)) {
-                $auto_queued = count($auto);
-                $order->add_order_note('וואטסאפ: הודעה על שינויים נוספה לתור אוטומטית');
-            }
-        }
-        wp_send_json_success(['saved' => $saved, 'auto_queued' => $auto_queued]);
+        // אין שליחה אוטומטית: בחירת סיבה רק מעדכנת את היומן. את ההודעה בונים
+        // ידנית מתיבת "שינויים שטרם דווחו", והיא נכנסת כטיוטה לאישור.
+        wp_send_json_success(['saved' => $saved]);
     }
 
     /** מחיקת תנועה מהיומן (מאמת שהיא שייכת להזמנה הנוכחית) */
@@ -473,10 +449,27 @@ class WSN_Order_Items
         $order_id = $order->get_id();
         $events = WSN_Item_Events::for_order($order_id);
         $unnotified = WSN_Item_Events::unnotified($order_id);
+        $order_drafts = WSN_Outbox::drafts_for_order($order_id);
         ?>
         <div class="wsn wsn-events" dir="rtl"
              data-order-id="<?php echo (int) $order_id; ?>"
              data-nonce="<?php echo esc_attr(wp_create_nonce('wsn_item_events_' . $order_id)); ?>">
+
+            <?php if ($order_drafts): ?>
+                <div class="wsn-pending" style="margin-bottom:14px">
+                    <p style="margin:0 0 8px"><b>הודעות ממתינות לאישור להזמנה זו</b> — נשלחות רק בלחיצה שלך.</p>
+                    <?php foreach ($order_drafts as $od): ?>
+                        <div class="wsn-draft wsn-card" data-id="<?php echo (int) $od['id']; ?>">
+                            <textarea class="wsn-draft-body" rows="4" dir="rtl"><?php echo esc_textarea((string) $od['body']); ?></textarea>
+                            <div class="wsn-draft-actions">
+                                <button type="button" class="button button-primary wsn-draft-send">שלח</button>
+                                <button type="button" class="button wsn-draft-discard">מחק</button>
+                                <span class="wsn-draft-msg description"></span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
 
             <?php if ($unnotified): ?>
                 <div class="wsn-compose">
@@ -504,7 +497,7 @@ class WSN_Order_Items
                         <div class="wsn-compose-bodies"></div>
                         <p><label><input type="checkbox" class="wsn-save-template"> שמור את הנוסח הזה כנוסח הקבוע לסוג השינוי</label>
                         <span class="description">שם הלקוח ומספר ההזמנה יוחלפו אוטומטית בשדות, כדי שהנוסח יתאים לכל הזמנה.</span></p>
-                        <button type="button" class="button button-primary wsn-compose-send">הוסף לתור ושלח ללקוח</button>
+                        <button type="button" class="button button-primary wsn-compose-send">הוסף לאישור</button>
                     </div>
                 </div>
             <?php endif; ?>

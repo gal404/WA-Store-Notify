@@ -72,21 +72,8 @@ $post = admin_url('admin-post.php');
                 <label><input type="checkbox" name="checkout_optin_enabled" value="1" <?php checked($s['checkout_optin_enabled']); ?>> הצג צ'קבוקס</label><br>
                 <input type="text" name="checkout_optin_label" value="<?php echo esc_attr($s['checkout_optin_label']); ?>" class="wsn-w-lg">
             </td></tr>
-            <tr><th>שליחה לכל סוג שינוי</th><td>
-                <p class="description" style="margin-top:0">ההודעה תמיד נבנית אוטומטית מהשינויים שנרשמו. כאן נקבע אם היא גם <b>נשלחת</b> לבד, או ממתינה ללחיצה שלך בעמוד ההזמנה.</p>
-                <table class="wsn-modes">
-                    <?php foreach (WSN_Change_Composer::types() as $ct => $ct_label):
-                        $mode = $s['send_mode_' . $ct] ?? 'manual'; ?>
-                        <tr>
-                            <td><?php echo esc_html($ct_label); ?></td>
-                            <td>
-                                <label><input type="radio" name="send_mode_<?php echo esc_attr($ct); ?>" value="manual" <?php checked($mode, 'manual'); ?>> ידני</label>
-                                <label><input type="radio" name="send_mode_<?php echo esc_attr($ct); ?>" value="auto" <?php checked($mode, 'auto'); ?>> אוטומטי</label>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </table>
-                <p class="description">שינויי פריטים במצב אוטומטי נשלחים אחרי שנבחרה סיבה — כך שההודעה יכולה לכלול אותה. אם דוחים את המודאל ב"אחר כך", ההודעה תמתין.</p>
+            <tr><th>שליחת הודעות</th><td>
+                <p class="description" style="margin-top:0">כל ההודעות (סטטוס ושינויים בהזמנה) נבנות אוטומטית אך <b>אינן נשלחות מעצמן</b> — הן ממתינות לאישורך במסך <a href="<?php echo esc_url(admin_url('admin.php?page=wsn-pending')); ?>"><b>הודעות ממתינות</b></a> וגם בעמוד ההזמנה. שם רואים את הטקסט המלא, עורכים, ולוחצים "שלח" או "מחק".</p>
             </td></tr>
             <tr><th>סיבות להסרת פריט / שינוי כמות</th><td>
                 <textarea name="item_reasons_removed" rows="4" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['item_reasons_removed']); ?></textarea>

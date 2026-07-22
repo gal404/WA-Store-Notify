@@ -213,6 +213,7 @@ class WSN_Change_Composer
             'order_id'  => $order->get_id(),
             'phone'     => $phone,
             'body'      => $body,
+            'status'    => 'draft', // טיוטה לאישור — לא נשלח מעצמו
             // מפתח ייחודי לצירוף השינויים הזה — מונע כפילות אם נלחץ פעמיים
             'event_key' => 'chg-' . $order->get_id() . '-' . md5(implode(',', $ids) . '|' . $body),
         ]);

@@ -29,6 +29,8 @@ class WSN_Outbox
         }
 
         $expiry_hours = $args['expiry_hours'] ?? (int) WSN_Settings::get('expiry_hours');
+        // 'draft' = ממתינה לאישור המנהל; הגשר תובע רק 'queued', לכן טיוטה לא נשלחת
+        $status = ($args['status'] ?? 'queued') === 'draft' ? 'draft' : 'queued';
         $row = [
             'kind'         => $args['kind'] ?? 'status',
             'priority'     => (int) ($args['priority'] ?? 0),
@@ -37,7 +39,7 @@ class WSN_Outbox
             'contact_id'   => $args['contact_id'] ?? null,
             'phone_e164'   => $phone,
             'body'         => trim($args['body']),
-            'status'       => 'queued',
+            'status'       => $status,
             'event_key'    => $args['event_key'] ?? null,
             'scheduled_at' => $args['scheduled_at'] ?? current_time('mysql'),
             'expires_at'   => $expiry_hours > 0
@@ -211,6 +213,96 @@ class WSN_Outbox
         ));
     }
 
+    // ===== שכבת אישור (טיוטות): הודעה נבנית כ-draft, המנהל רואה/עורך/מאשר =====
+
+    /** טיוטות שממתינות לאישור המנהל — עם גוף ההודעה להצגה ולעריכה */
+    public static function list_drafts(int $limit = 100): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, kind, phone_e164, body, order_id, created_at
+             FROM " . self::table() . "
+             WHERE status='draft'
+             ORDER BY id DESC LIMIT %d", $limit
+        ), ARRAY_A);
+    }
+
+    public static function get(int $id): ?array
+    {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM " . self::table() . " WHERE id=%d", $id
+        ), ARRAY_A);
+        return $row ?: null;
+    }
+
+    /** טיוטות של הזמנה מסוימת — לאישור מתוך עמוד ההזמנה */
+    public static function drafts_for_order(int $order_id): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, kind, phone_e164, body, order_id, created_at
+             FROM " . self::table() . "
+             WHERE status='draft' AND order_id=%d ORDER BY id DESC", $order_id
+        ), ARRAY_A);
+    }
+
+    /** עריכת גוף ההודעה — רק לטיוטה שעדיין לא אושרה */
+    public static function update_body(int $id, string $body): bool
+    {
+        $body = trim($body);
+        if ($body === '') {
+            return false;
+        }
+        global $wpdb;
+        $res = $wpdb->update(
+            self::table(),
+            ['body' => $body],
+            ['id' => $id, 'status' => 'draft']
+        );
+        return $res !== false;
+    }
+
+    /**
+     * אישור טיוטות → מכניס לתור (queued) עכשיו בעדיפות "נדחף", כדי שהגשר יתפוס
+     * אותן גם אם השליחה מושהית כללית ("אישרתי = שלח"). הקצב האנושי נשמר בגשר.
+     */
+    public static function approve(array $ids): int
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return 0;
+        }
+        global $wpdb;
+        $ph = implode(',', array_fill(0, count($ids), '%d'));
+        return (int) $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::table() . " SET status='queued', priority=" . (int) self::PRIORITY_FORCED . ", scheduled_at=%s
+             WHERE status='draft' AND id IN ($ph)",
+            array_merge([current_time('mysql')], $ids)
+        ));
+    }
+
+    /** מחיקת טיוטות שלא יישלחו (נשמר כ-cancelled לתיעוד) */
+    public static function discard(array $ids): int
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return 0;
+        }
+        global $wpdb;
+        $ph = implode(',', array_fill(0, count($ids), '%d'));
+        return (int) $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::table() . " SET status='cancelled', last_error='נמחק לפני שליחה'
+             WHERE status='draft' AND id IN ($ph)", $ids
+        ));
+    }
+
+    public static function draft_count(): int
+    {
+        global $wpdb;
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM " . self::table() . " WHERE status='draft'");
+    }
+
     /** סטטוסים "סגורים" — הודעות שכבר טופלו ולא ימתינו יותר (היסטוריה) */
     const DONE_STATUSES = ['sent', 'failed', 'cancelled', 'expired'];
 
@@ -281,7 +373,7 @@ class WSN_Outbox
     {
         global $wpdb;
         $rows = $wpdb->get_results("SELECT status, COUNT(*) c FROM " . self::table() . " GROUP BY status", ARRAY_A);
-        $out = ['queued' => 0, 'claimed' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0, 'expired' => 0];
+        $out = ['draft' => 0, 'queued' => 0, 'claimed' => 0, 'sent' => 0, 'failed' => 0, 'cancelled' => 0, 'expired' => 0];
         foreach ((array) $rows as $r) {
             $out[$r['status']] = (int) $r['c'];
         }
