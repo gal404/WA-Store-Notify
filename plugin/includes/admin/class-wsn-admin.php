@@ -42,6 +42,7 @@ class WSN_Admin
         add_submenu_page('wsn-status', 'מועדון לקוחות', 'מועדון', self::CAP, 'wsn-contacts', [__CLASS__, 'page_contacts']);
         add_submenu_page('wsn-status', 'קמפיינים', 'קמפיינים', self::CAP, 'wsn-campaigns', [__CLASS__, 'page_campaigns']);
         add_submenu_page('wsn-status', 'בדיקת הזמנה', 'בדיקת הזמנה', self::CAP, 'wsn-inspect', [__CLASS__, 'page_inspect']);
+        add_submenu_page('wsn-status', 'סריקת תוסף שליחויות', 'סריקת תוסף', self::CAP, 'wsn-pluginscan', [__CLASS__, 'page_plugin_scan']);
     }
 
     /** מסך עריכת הזמנה — גם קלאסי וגם HPOS */
@@ -209,6 +210,109 @@ class WSN_Admin
         }
 
         return ['core' => $core, 'shipping' => $shipping, 'meta' => $meta, 'items' => $items];
+    }
+
+    public static function page_plugin_scan(): void
+    {
+        self::guard();
+        $term = sanitize_text_field(wp_unslash($_GET['term'] ?? 'cslfw,cargo')); // phpcs:ignore WordPress.Security.NonceVerification -- קריאה בלבד
+        self::view('pluginscan', ['term' => $term, 'result' => self::scan_plugins($term)]);
+    }
+
+    /**
+     * סורק את תיקיית התוספים ומאתר את תוסף השליחויות (לפי מונח), ומחלץ ממנו
+     * את השורות הרלוונטיות: שימוש ב-cslfw_shipping והוקים (do_action/apply_filters)
+     * — כדי לזהות מתי ואיזה הוק מופעל כשנוצר מספר מעקב. קריאה בלבד.
+     */
+    private static function scan_plugins(string $term): array
+    {
+        $dir = defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR : WP_CONTENT_DIR . '/plugins';
+        $out = ['dir' => $dir, 'terms' => [], 'plugins' => []];
+        if (!is_dir($dir)) {
+            return $out;
+        }
+        $terms = array_values(array_filter(array_map('trim', preg_split('/[,\s]+/', strtolower($term)))));
+        $out['terms'] = $terms;
+        $matches_terms = static function (string $hay) use ($terms): bool {
+            $hay = strtolower($hay);
+            foreach ($terms as $t) {
+                if ($t !== '' && strpos($hay, $t) !== false) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        foreach ((array) glob($dir . '/*', GLOB_ONLYDIR) as $pdir) {
+            $slug = basename($pdir);
+            $candidate = $matches_terms($slug);
+            if (!$candidate) {
+                // בדיקה זולה: רק קבצי ה-php ברמה העליונה של התוסף
+                foreach ((array) glob($pdir . '/*.php') as $tf) {
+                    $head = (string) @file_get_contents($tf, false, null, 0, 300000);
+                    if ($head !== '' && $matches_terms($head)) {
+                        $candidate = true;
+                        break;
+                    }
+                }
+            }
+            if (!$candidate) {
+                continue;
+            }
+
+            $files = self::php_files($pdir, 500);
+            $hits = [];
+            foreach ($files as $f) {
+                $src = (string) @file_get_contents($f);
+                if ($src === '') {
+                    continue;
+                }
+                $rel = ltrim(str_replace([$dir, '\\'], ['', '/'], $f), '/');
+                $lines = preg_split('/\r\n|\r|\n/', $src);
+                foreach ($lines as $i => $line) {
+                    $cat = '';
+                    if (stripos($line, 'cslfw_shipping') !== false) {
+                        $cat = 'cslfw_shipping';
+                    } elseif (preg_match('/\bdo_action\s*\(/i', $line)) {
+                        $cat = 'do_action';
+                    } elseif (preg_match('/\bapply_filters\s*\(/i', $line)) {
+                        $cat = 'apply_filters';
+                    } elseif (preg_match('/update_(post_)?meta(_data)?\s*\(/i', $line) && $matches_terms($line)) {
+                        $cat = 'meta_write';
+                    }
+                    if ($cat !== '') {
+                        $hits[] = ['file' => $rel, 'line' => $i + 1, 'cat' => $cat, 'code' => trim($line)];
+                        if (count($hits) >= 500) {
+                            break 2;
+                        }
+                    }
+                }
+            }
+            $out['plugins'][] = ['slug' => $slug, 'files' => count($files), 'hits' => $hits];
+        }
+        return $out;
+    }
+
+    /** רשימת קבצי php בתוסף (רקורסיבי, מוגבל) */
+    private static function php_files(string $dir, int $cap = 500): array
+    {
+        $files = [];
+        try {
+            $it = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($it as $f) {
+                if ($f->isFile() && strtolower($f->getExtension()) === 'php') {
+                    $files[] = $f->getPathname();
+                    if (count($files) >= $cap) {
+                        break;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // תיקייה לא קריאה — מדלגים
+        }
+        return $files;
     }
 
     /** מוסיף לכל טיוטה פרטי הזמנה ולקוח, לתצוגה במסך "הודעות ממתינות" */
