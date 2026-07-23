@@ -429,6 +429,9 @@ class WSN_Admin
         }
         $changes['warmup_started'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', $in['warmup_started'] ?? '') ? $in['warmup_started'] : '';
         $changes['tracking_meta_key'] = sanitize_text_field($in['tracking_meta_key'] ?? '');
+        $tns = sanitize_text_field($in['tracking_notify_status'] ?? '');
+        $valid_statuses = function_exists('wc_get_order_statuses') ? array_keys(wc_get_order_statuses()) : [];
+        $changes['tracking_notify_status'] = in_array($tns, $valid_statuses, true) ? $tns : '';
         $changes['optout_keywords'] = sanitize_textarea_field($in['optout_keywords'] ?? '');
         $changes['item_reasons_removed'] = sanitize_textarea_field($in['item_reasons_removed'] ?? '');
         $changes['item_reasons_added'] = sanitize_textarea_field($in['item_reasons_added'] ?? '');

@@ -28,6 +28,8 @@ class WSN_Settings
             'typo_ratio'               => 7,
             // משלוחים
             'tracking_meta_key'        => '',
+            // מתי לבנות את טיוטת הודעת המעקב: '' = מיד כשמתקבל מספר; 'wc-…' = רק בסטטוס הזה
+            'tracking_notify_status'   => '',
             // הסרה
             'optout_keywords'          => "הסר\nהסירו אותי\nstop",
             // כללי

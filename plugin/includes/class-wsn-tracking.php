@@ -26,6 +26,12 @@ class WSN_Tracking
         if ($num === '') {
             return;
         }
+        // הגדרת "מתי לבנות": ריק = מיד; אחרת רק כשההזמנה בסטטוס שנבחר. ההוק רץ
+        // גם בשינויי סטטוס, ולכן נתפסים שני הכיוונים (מעקב לפני/אחרי הסטטוס).
+        $required = (string) WSN_Settings::get('tracking_notify_status');
+        if ($required !== '' && 'wc-' . $order->get_status() !== $required) {
+            return;
+        }
         $tpl = WSN_Templates::get('tracking_update');
         if (!$tpl) {
             return;

@@ -66,7 +66,18 @@ $post = admin_url('admin-post.php');
                 <datalist id="wsn-meta-presets">
                     <option value="_wc_shipment_tracking_items"><option value="ywot_tracking_code">
                 </datalist>
-                <p class="description">מאיפה למשוך מספר מעקב אם לא הוזן ידנית בהזמנה. ריק = רק השדה הידני.</p>
+                <p class="description">מאיפה למשוך מספר מעקב אם לא הוזן ידנית בהזמנה. ריק = רק השדה הידני. (משלוחי CARGO מזוהים אוטומטית גם בלי הגדרה.)</p>
+            </td></tr>
+            <tr><th>מתי לבנות את הודעת המעקב</th><td>
+                <select name="tracking_notify_status">
+                    <option value="" <?php selected($s['tracking_notify_status'] ?? '', ''); ?>>מיד כשמתקבל מספר מעקב</option>
+                    <?php if (function_exists('wc_get_order_statuses')): ?>
+                        <?php foreach (wc_get_order_statuses() as $st_key => $st_label): ?>
+                            <option value="<?php echo esc_attr($st_key); ?>" <?php selected($s['tracking_notify_status'] ?? '', $st_key); ?>>רק כשההזמנה בסטטוס: <?php echo esc_html($st_label); ?></option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </select>
+                <p class="description">ההודעה תמיד רק <b>נבנית</b> וממתינה לאישורך ב"הודעות ממתינות". "רק בסטטוס" = הטיוטה תיווצר כשההזמנה עם מספר המעקב נמצאת בסטטוס שנבחר — תופס את שני הכיוונים (מעקב שהתקבל לפני הסטטוס או אחריו).</p>
             </td></tr>
             <tr><th>הסכמת דיוור ב-checkout</th><td>
                 <label><input type="checkbox" name="checkout_optin_enabled" value="1" <?php checked($s['checkout_optin_enabled']); ?>> הצג צ'קבוקס</label><br>
