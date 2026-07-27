@@ -145,8 +145,8 @@ class WSN_Templates
             }
             $status = $order->get_status();
             $vals += [
-                'first_name'      => $order->get_billing_first_name() ?: 'לקוח/ה',
-                'last_name'       => $order->get_billing_last_name(),
+                'first_name'      => trim($order->get_billing_first_name()) ?: 'לקוח/ה',
+                'last_name'       => trim($order->get_billing_last_name()),
                 'order_number'    => $order->get_order_number(),
                 'order_total'     => html_entity_decode(wp_strip_all_tags(wc_price($order->get_total()))),
                 'items'           => implode(', ', $items),
@@ -164,6 +164,12 @@ class WSN_Templates
             }
         }
         $vals = array_merge($vals, $extra);
+
+        // שם מלא כיחידה אחת: מונע רווח תלוי כשאין שם משפחה — התבנית
+        // "*{first_name} {last_name}*" עם שם משפחה ריק הייתה יוצרת "*איתן *"
+        // (רווח צמוד לכוכבית מבטל את ההדגשה בוואטסאפ).
+        $vals['full_name'] = trim((string) ($vals['first_name'] ?? '') . ' ' . (string) ($vals['last_name'] ?? ''));
+        $text = str_replace('{first_name} {last_name}', $vals['full_name'], $text);
 
         foreach ($vals as $k => $v) {
             $text = str_replace('{' . $k . '}', (string) $v, $text);
