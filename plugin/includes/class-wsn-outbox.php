@@ -96,10 +96,12 @@ class WSN_Outbox
         $token = wp_generate_uuid4();
         $kind_ph = implode(',', array_fill(0, count($kinds), '%s'));
         $params = array_merge([$token, $now], $kinds, [$now, min($max, 10)]);
+        // סדר שליחה: קודם עדיפות (נדחף לפני רגיל), ואז לפי מתי נכנס לתור
+        // (scheduled_at נחתם ברגע האישור) — כך "מה שאושר קודם נשלח קודם" (FIFO).
         $wpdb->query($wpdb->prepare(
             "UPDATE $t SET status='claimed', claim_token=%s, claim_expires_at=DATE_ADD(%s, INTERVAL 10 MINUTE)
              WHERE status='queued' AND kind IN ($kind_ph) AND scheduled_at <= %s $forced_only
-             ORDER BY priority ASC, id ASC LIMIT %d", $params
+             ORDER BY priority ASC, scheduled_at ASC, id ASC LIMIT %d", $params
         ));
 
         $rows = $wpdb->get_results($wpdb->prepare(
@@ -223,7 +225,7 @@ class WSN_Outbox
             "SELECT id, kind, phone_e164, body, order_id, created_at
              FROM " . self::table() . "
              WHERE status='draft'
-             ORDER BY id DESC LIMIT %d", $limit
+             ORDER BY id ASC LIMIT %d", $limit
         ), ARRAY_A);
     }
 
@@ -243,7 +245,7 @@ class WSN_Outbox
         return (array) $wpdb->get_results($wpdb->prepare(
             "SELECT id, kind, phone_e164, body, order_id, created_at
              FROM " . self::table() . "
-             WHERE status='draft' AND order_id=%d ORDER BY id DESC", $order_id
+             WHERE status='draft' AND order_id=%d ORDER BY id ASC", $order_id
         ), ARRAY_A);
     }
 
@@ -343,7 +345,7 @@ class WSN_Outbox
             "SELECT id, kind, priority, phone_e164, body, status, attempts, order_id, scheduled_at, created_at
              FROM " . self::table() . "
              WHERE status IN ('queued','claimed')
-             ORDER BY priority ASC, id ASC
+             ORDER BY priority ASC, scheduled_at ASC, id ASC
              LIMIT %d", $limit
         ), ARRAY_A);
     }
