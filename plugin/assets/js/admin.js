@@ -380,6 +380,40 @@
             card.remove();
             if (!pendingRoot.querySelector('.wsn-draft')) { location.reload(); }
         }
+        function dropCard(card) { if (card && card.parentNode) { card.remove(); } }
+
+        function delayOf(d, id) {
+            var v = (d && d.data && d.data.delays) ? d.data.delays[String(id)] : 0;
+            v = parseInt(v, 10);
+            return isNaN(v) ? 0 : v;
+        }
+
+        // הופך כרטיס שאושר לכרטיס "הושהתה" עם ספירה יורדת עד השליחה לשרת
+        function markScheduled(card, seconds) {
+            var actions = card.querySelector('.wsn-draft-actions');
+            var bodyEl = card.querySelector('.wsn-draft-body');
+            if (bodyEl) { bodyEl.readOnly = true; }
+            card.classList.add('wsn-draft-scheduled');
+            if (!actions) { return; }
+            if (seconds <= 0) {
+                actions.innerHTML = '<span class="wsn-draft-sent">✔ נשלחה לשרת</span>';
+                setTimeout(function () { dropCard(card); }, 3000);
+                return;
+            }
+            var end = Date.now() + seconds * 1000;
+            actions.innerHTML = '<span class="wsn-draft-timer">⏳ ההודעה הושהתה — נשלחת בעוד <b>--:--</b> דק׳</span>';
+            var b = actions.querySelector('b');
+            var iv = setInterval(function () {
+                var rem = Math.max(0, Math.round((end - Date.now()) / 1000));
+                var mm = Math.floor(rem / 60), ss = rem % 60;
+                b.textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+                if (rem <= 0) {
+                    clearInterval(iv);
+                    actions.innerHTML = '<span class="wsn-draft-sent">✔ נשלחה לשרת</span>';
+                    setTimeout(function () { dropCard(card); }, 5000);
+                }
+            }, 1000);
+        }
 
         pendingRoot.addEventListener('click', function (e) {
             var t = e.target;
@@ -390,7 +424,7 @@
                 t.disabled = true; msg.textContent = 'שולח…';
                 pPost('wsn_draft_approve', { ids: [card.dataset.id], body: card.querySelector('.wsn-draft-body').value }).then(function (d) {
                     if (!d || !d.success) { msg.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; return; }
-                    removeCard(card);
+                    markScheduled(card, delayOf(d, card.dataset.id));
                 }).catch(function () { msg.textContent = 'שגיאת רשת'; t.disabled = false; });
 
             } else if (t.classList.contains('wsn-draft-discard') && card) {
@@ -413,8 +447,10 @@
                 Promise.all(saves).then(function () {
                     return pPost('wsn_draft_approve', { ids: cards.map(function (c) { return c.dataset.id; }) });
                 }).then(function (d) {
-                    if (d && d.success) { location.reload(); }
-                    else { pendingBar.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; }
+                    if (!d || !d.success) { pendingBar.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; return; }
+                    pendingBar.textContent = 'אושרו ' + (d.data.approved || cards.length) + ' הודעות — לפי הסדר, עם השהיה בין הודעות לאותו לקוח';
+                    if (t.parentNode) { t.remove(); }
+                    cards.forEach(function (c) { markScheduled(c, delayOf(d, c.dataset.id)); });
                 }).catch(function () { pendingBar.textContent = 'שגיאת רשת'; t.disabled = false; });
             }
         });

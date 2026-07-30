@@ -19,6 +19,11 @@ $post = admin_url('admin-post.php');
                 עד <input type="number" name="trans_max_gap_s" value="<?php echo esc_attr($s['trans_max_gap_s']); ?>" min="5" class="wsn-w-num">
                 <p class="description">מרווח אקראי בטווח הזה בין כל הודעה — מרכיב מרכזי במניעת חסימה.</p>
             </td></tr>
+            <tr><th>השהיה בין הודעות לאותו לקוח (שניות)</th><td>
+                מ־<input type="number" name="cust_gap_min_s" value="<?php echo esc_attr($s['cust_gap_min_s']); ?>" min="0" class="wsn-w-num">
+                עד <input type="number" name="cust_gap_max_s" value="<?php echo esc_attr($s['cust_gap_max_s']); ?>" min="0" class="wsn-w-num">
+                <p class="description">כשנשלחות כמה הודעות לאותו מספר, כל אחת מרווחת מהקודמת בזמן אקראי בטווח הזה (ברירת מחדל 300–600 = 5–10 דק). הודעה ראשונה ללקוח נשלחת מיד.</p>
+            </td></tr>
             <tr><th>מגבלת שליחה</th><td>
                 <input type="number" name="trans_hourly_cap" value="<?php echo esc_attr($s['trans_hourly_cap']); ?>" class="wsn-w-num"> לשעה,
                 <input type="number" name="trans_daily_cap" value="<?php echo esc_attr($s['trans_daily_cap']); ?>" class="wsn-w-num"> ליום

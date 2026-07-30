@@ -386,6 +386,10 @@
     .wsn-draft-actions .button { flex: 1; text-align: center; }
     .wsn-draft-club { margin-inline-start: 0; width: 100%; }
 }
+.wsn-draft-scheduled { background: #fff9ef; }
+.wsn-draft-timer { color: #b3730a; font-weight: 600; }
+.wsn-draft-timer b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.wsn-draft-sent { color: #1f9d57; font-weight: 700; }
 
 /* ---------- מסך תבניות: שורות מכווצות ---------- */
 .wsn-tpl-group { background: #fff; border: 1px solid var(--wsn-border, #dfe5e3); border-radius: 10px; overflow: hidden; margin: 8px 0 20px; }

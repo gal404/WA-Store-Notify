@@ -390,11 +390,18 @@ class WSN_Admin
                 WSN_Outbox::update_body($ids[0], $body);
             }
         }
-        $n = WSN_Outbox::approve($ids);
+        $sched = WSN_Outbox::approve($ids); // [id => scheduled_at]
+        $n = count($sched);
         if (!$n) {
             wp_send_json_error('שום טיוטה לא אושרה');
         }
-        wp_send_json_success(['approved' => $n, 'draft_count' => WSN_Outbox::draft_count()]);
+        // כמה שניות עד השליחה בפועל לכל הודעה (0 = מיד) — לטיימר בצד הלקוח
+        $now_ts = strtotime(current_time('mysql'));
+        $delays = [];
+        foreach ($sched as $id => $at) {
+            $delays[(string) $id] = max(0, strtotime($at) - $now_ts);
+        }
+        wp_send_json_success(['approved' => $n, 'delays' => $delays, 'draft_count' => WSN_Outbox::draft_count()]);
     }
 
     public static function ajax_draft_discard(): void
@@ -420,6 +427,7 @@ class WSN_Admin
         $changes = [];
         $ints = ['trans_min_gap_s', 'trans_max_gap_s', 'trans_hourly_cap', 'trans_daily_cap',
             'camp_min_gap_s', 'camp_max_gap_s', 'camp_hourly_cap', 'camp_daily_cap',
+            'cust_gap_min_s', 'cust_gap_max_s',
             'typo_ratio', 'expiry_hours', 'retention_days', 'warmup_enabled', 'checkout_optin_enabled'];
         foreach ($ints as $k) {
             $changes[$k] = max(0, (int) ($in[$k] ?? 0));

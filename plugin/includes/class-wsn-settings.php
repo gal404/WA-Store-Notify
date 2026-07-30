@@ -14,6 +14,9 @@ class WSN_Settings
             'trans_daily_cap'          => 150,
             'quiet_from'               => '21:00',
             'quiet_to'                 => '08:00',
+            // השהיה אקראית בין הודעות *לאותו לקוח* (שניות) — 5–10 דק
+            'cust_gap_min_s'           => 300,
+            'cust_gap_max_s'           => 600,
             // קמפיינים
             'camp_min_gap_s'           => 90,
             'camp_max_gap_s'           => 240,

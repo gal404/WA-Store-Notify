@@ -265,23 +265,61 @@ class WSN_Outbox
         return $res !== false;
     }
 
+    const CUST_GAP_MIN_DEFAULT = 300; // 5 דק
+    const CUST_GAP_MAX_DEFAULT = 600; // 10 דק
+
     /**
-     * אישור טיוטות → מכניס לתור (queued) עכשיו בעדיפות "נדחף", כדי שהגשר יתפוס
-     * אותן גם אם השליחה מושהית כללית ("אישרתי = שלח"). הקצב האנושי נשמר בגשר.
+     * אישור טיוטות → מכניס לתור (queued) בעדיפות "נדחף". השליחה מרווחת פר-לקוח:
+     * כל הודעה מתוזמנת לפחות gap אקראי (5–10 דק) אחרי ההודעה הקודמת *לאותו טלפון*
+     * (ממתינה או שנשלחה). הודעה ראשונה ללקוח — נשלחת מיד. מחזיר [id => scheduled_at].
      */
-    public static function approve(array $ids): int
+    public static function approve(array $ids): array
     {
         $ids = array_values(array_filter(array_map('intval', $ids)));
         if (!$ids) {
-            return 0;
+            return [];
         }
         global $wpdb;
-        $ph = implode(',', array_fill(0, count($ids), '%d'));
-        return (int) $wpdb->query($wpdb->prepare(
-            "UPDATE " . self::table() . " SET status='queued', priority=" . (int) self::PRIORITY_FORCED . ", scheduled_at=%s
-             WHERE status='draft' AND id IN ($ph)",
-            array_merge([current_time('mysql')], $ids)
-        ));
+        $t = self::table();
+        $now = current_time('mysql');
+        $now_ts = strtotime($now);
+
+        $min = (int) WSN_Settings::get('cust_gap_min_s');
+        $max = (int) WSN_Settings::get('cust_gap_max_s');
+        if ($min <= 0) { $min = self::CUST_GAP_MIN_DEFAULT; }
+        if ($max < $min) { $max = max($min, self::CUST_GAP_MAX_DEFAULT); }
+
+        $out = [];
+        foreach ($ids as $id) {
+            $phone = $wpdb->get_var($wpdb->prepare(
+                "SELECT phone_e164 FROM $t WHERE id=%d AND status='draft'", $id
+            ));
+            if ($phone === null) {
+                continue;
+            }
+            // הזמן האחרון שבו כבר יש/הייתה הודעה לאותו לקוח (ממתינה בתור או שנשלחה)
+            $last = $wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(t) FROM (
+                    SELECT scheduled_at t FROM $t WHERE phone_e164=%s AND status IN ('queued','claimed')
+                    UNION ALL
+                    SELECT sent_at t FROM $t WHERE phone_e164=%s AND status='sent' AND sent_at IS NOT NULL
+                 ) x",
+                $phone, $phone
+            ));
+            $sched_ts = $now_ts;
+            if ($last) {
+                $gap = random_int($min, $max); // אקראי לשנייה — 5:00 עד 10:00
+                $sched_ts = max($now_ts, strtotime($last) + $gap);
+            }
+            // gmdate עקבי עם שאר הקוד (enqueue משתמש באותו דפוס מול current_time)
+            $sched = gmdate('Y-m-d H:i:s', $sched_ts);
+            $wpdb->update($t,
+                ['status' => 'queued', 'priority' => self::PRIORITY_FORCED, 'scheduled_at' => $sched],
+                ['id' => $id, 'status' => 'draft']
+            );
+            $out[$id] = $sched;
+        }
+        return $out;
     }
 
     /** מחיקת טיוטות שלא יישלחו (נשמר כ-cancelled לתיעוד) */
