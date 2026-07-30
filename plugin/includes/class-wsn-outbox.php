@@ -250,7 +250,7 @@ class WSN_Outbox
         $offset = ($page - 1) * $per;
         $items = (array) $wpdb->get_results($wpdb->prepare(
             "SELECT id, kind, phone_e164, body, order_id, created_at
-             FROM $t WHERE status='draft' ORDER BY id ASC LIMIT %d OFFSET %d",
+             FROM $t WHERE status='draft' ORDER BY id DESC LIMIT %d OFFSET %d",
             $per, $offset
         ), ARRAY_A);
         return ['items' => $items, 'total' => $total, 'page' => $page, 'per' => $per, 'pages' => $pages];

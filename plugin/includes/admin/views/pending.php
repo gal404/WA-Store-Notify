@@ -44,6 +44,7 @@ $drafts = $data['items'];
                         <?php if ($cust): ?>
                             <span class="description wsn-draft-club"><?php echo (int) $cust['orders_count']; ?> הזמנות<?php echo $cust['consent'] ? ' · דיוור ✓' : ''; ?></span>
                         <?php endif; ?>
+                        <span class="description wsn-draft-date">🕐 <?php echo esc_html(mysql2date('d/m/Y H:i', $d['created_at'])); ?></span>
                     </div>
                     <textarea class="wsn-draft-body" rows="5" dir="rtl"><?php echo esc_textarea((string) $d['body']); ?></textarea>
                     <div class="wsn-draft-actions">

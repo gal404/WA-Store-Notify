@@ -109,32 +109,33 @@ try {
                         <?php endif; ?>
                     </th>
                     <?php $o = $orders[(int) $r['order_id']] ?? null; ?>
+                    <?php
+                    // קישור לוואטסאפ עם ההודעה מוכנה בתיבת הכתיבה (הכנה בלבד — שליחה ידנית)
+                    $wa_url = 'https://wa.me/' . rawurlencode($r['phone_e164']) . '?text=' . rawurlencode($r['body']);
+                    ?>
                     <td class="column-primary" data-colname="הזמנה ולקוח">
-                        <?php if ($o): ?>
-                            <a class="wsn-order-link" href="<?php echo esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')); ?>">#<?php echo esc_html($o['number']); ?></a>
-                            <?php if ($o['name'] !== ''): ?>
-                                <span class="wsn-cust"><?php echo esc_html($o['name']); ?></span>
+                        <div class="wsn-cell">
+                            <div class="wsn-cell-top">
+                                <?php if ($o): ?>
+                                    <a class="wsn-order-link" href="<?php echo esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')); ?>">#<?php echo esc_html($o['number']); ?></a>
+                                    <span class="wsn-pill wsn-pill-order"><?php echo esc_html($o['label']); ?></span>
+                                <?php elseif ($r['order_id']): ?>
+                                    <span class="wsn-order-link">#<?php echo (int) $r['order_id']; ?></span>
+                                    <span class="description">(ההזמנה נמחקה)</span>
+                                <?php else: ?>
+                                    <span class="wsn-order-link"><?php echo esc_html($r['kind'] === 'test' ? 'הודעת בדיקה' : 'ללא הזמנה'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($o && $o['name'] !== ''): ?>
+                                <div class="wsn-cell-name"><?php echo esc_html($o['name']); ?></div>
                             <?php endif; ?>
-                            <span class="wsn-pill wsn-pill-order"><?php echo esc_html($o['label']); ?></span>
-                        <?php elseif ($r['order_id']): ?>
-                            <span class="wsn-cust">#<?php echo (int) $r['order_id']; ?> (ההזמנה נמחקה)</span>
-                        <?php else: ?>
-                            <span class="wsn-cust"><?php echo esc_html($r['kind'] === 'test' ? 'הודעת בדיקה' : 'ללא הזמנה'); ?></span>
-                        <?php endif; ?>
-                        <?php
-                        // קישור לוואטסאפ עם ההודעה מוכנה בתיבת הכתיבה. wa.me הוא
-                        // הפורמט הרשמי; הוא פותח את WhatsApp Web במחשב ואת האפליקציה
-                        // בנייד. שים לב: זה רק מכין את הטקסט — השליחה עצמה ידנית,
-                        // ולא עוברת דרך התור/הגשר ולכן גם לא נרשמת ביומן.
-                        $wa_url = 'https://wa.me/' . rawurlencode($r['phone_e164'])
-                            . '?text=' . rawurlencode($r['body']);
-                        ?>
-                        <a class="wsn-phone wsn-wa-link" dir="ltr"
-                           href="<?php echo esc_url($wa_url); ?>"
-                           target="_blank" rel="noopener noreferrer"
-                           title="פתיחת שיחה בוואטסאפ עם ההודעה מוכנה לשליחה">
-                            (<?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?>)
-                        </a>
+                            <a class="wsn-phone wsn-wa-link" dir="ltr"
+                               href="<?php echo esc_url($wa_url); ?>"
+                               target="_blank" rel="noopener noreferrer"
+                               title="פתיחת שיחה בוואטסאפ עם ההודעה מוכנה לשליחה">
+                                <?php echo esc_html(WSN_Phone::to_display($r['phone_e164'])); ?>
+                            </a>
+                        </div>
                         <button type="button" class="toggle-row"><span class="screen-reader-text">הצג פרטים</span></button>
                     </td>
                     <td data-colname="מתי"><?php echo esc_html(mysql2date('d/m H:i', $r['created_at'])); ?></td>

@@ -378,6 +378,8 @@
 .wsn-pending-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 14px 0; }
 .wsn-check-all-lbl { font-weight: 600; }
 .wsn-draft-select { flex: none; }
+.wsn-draft-club { margin-inline-start: 0; }
+.wsn-draft-date { margin-inline-start: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* פגינציה — פייג׳ר ממוספר נקי */
 .wsn-pagenav { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 22px 0 6px; }
 .wsn-pagenav .page-numbers {
@@ -392,6 +394,13 @@
 .wsn-pagenav .page-numbers.current { background: var(--wsn-accent, #0b7a6e); border-color: var(--wsn-accent, #0b7a6e); color: #fff; }
 .wsn-pagenav .page-numbers.dots { border-color: transparent; background: none; box-shadow: none; min-width: 20px; padding: 0 2px; }
 .wsn-pill-draft { background: #eef2f1; color: #5b6b66; }
+
+/* עמודת "הזמנה ולקוח" ביומן — מבנה מסודר ומיושר */
+.wsn-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.wsn-cell-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wsn-order-link { font-weight: 700; font-size: 14px; text-decoration: none; }
+.wsn-cell-name { color: var(--wsn-ink, #0f2e2b); font-size: 13.5px; }
+.wsn-cell .wsn-phone { font-size: 13px; width: fit-content; }
 .wsn-draft { margin-bottom: 14px; padding: 14px 16px; }
 .wsn-draft-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
 .wsn-draft-name { font-size: 14px; color: var(--wsn-ink, #0f2e2b); }
