@@ -261,6 +261,17 @@ class WSN_Outbox
         ), ARRAY_A);
     }
 
+    /** כל הודעות ההזמנה (כל הסטטוסים) — לתצוגת מודאל פירוט מלא */
+    public static function all_for_order(int $order_id, int $limit = 50): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, kind, body, status, scheduled_at, sent_at, created_at, last_error, attempts
+             FROM " . self::table() . "
+             WHERE order_id=%d ORDER BY id DESC LIMIT %d", $order_id, $limit
+        ), ARRAY_A);
+    }
+
     /** היסטוריית שליחה של הזמנה (נשלח/נכשל/בוטל) — עם תאריך ושעה */
     public static function history_for_order(int $order_id, int $limit = 20): array
     {

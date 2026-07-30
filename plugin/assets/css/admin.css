@@ -401,6 +401,16 @@
 .wsn-pill-sent { background: #e4f5ea; color: #1f7a44; }
 .wsn-pill-failed { background: #fde8e6; color: #b3352e; }
 
+/* מודאל "עין" — פירוט הודעה + רשימת כל ההודעות */
+.wsn-msg-meta { font-size: 13.5px; line-height: 1.9; margin-bottom: 10px; }
+.wsn-msg-text { white-space: pre-wrap; word-break: break-word; background: #f6f8f7; border: 1px solid #dfe5e3; border-radius: 8px; padding: 12px; margin: 0; font-family: inherit; font-size: 14px; line-height: 1.6; }
+.wsn-msg-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.wsn-msg-li { display: flex; gap: 8px; align-items: baseline; padding: 8px 6px; border-top: 1px solid #eef2f1; cursor: pointer; font-size: 13px; border-radius: 6px; }
+.wsn-msg-li:hover { background: #f0f7f5; }
+.wsn-msg-li.is-active { background: #e6f2f0; }
+.wsn-msg-when { color: #5b6b66; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wsn-msg-prev { color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- מסך תבניות: שורות מכווצות ---------- */
 .wsn-tpl-group { background: #fff; border: 1px solid var(--wsn-border, #dfe5e3); border-radius: 10px; overflow: hidden; margin: 8px 0 20px; }
 .wsn-tpl-row + .wsn-tpl-row { border-top: 1px solid var(--wsn-border, #dfe5e3); }

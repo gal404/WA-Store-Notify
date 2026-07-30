@@ -477,6 +477,82 @@
         });
     })();
 
+    // מודאל "עין" — פירוט מלא של הודעה + רשימת כל הודעות ההזמנה בקצרה
+    (function () {
+        var root = document.querySelector('.wsn-events');
+        if (!root) { return; }
+        var dataEl = root.querySelector('.wsn-msgs-json');
+        if (!dataEl) { return; }
+        var msgs;
+        try { msgs = JSON.parse(dataEl.textContent || '[]'); } catch (e) { msgs = []; }
+        if (!msgs.length) { return; }
+        var byId = {};
+        msgs.forEach(function (m) { byId[String(m.id)] = m; });
+
+        function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+        function pillClass(s) {
+            if (s === 'sent') { return 'wsn-pill-sent'; }
+            if (s === 'failed') { return 'wsn-pill-failed'; }
+            if (s === 'draft' || s === 'queued' || s === 'claimed') { return 'wsn-pill-order'; }
+            return 'wsn-pill-queued';
+        }
+        function fullHtml(m) {
+            var rows = ['<div><b>סטטוס:</b> ' + esc(m.status_label) + '</div>'];
+            if (m.created) { rows.push('<div><b>נוצרה:</b> ' + esc(m.created) + '</div>'); }
+            if (m.scheduled && (m.status === 'queued' || m.status === 'claimed')) { rows.push('<div><b>מתוזמנת:</b> ' + esc(m.scheduled) + '</div>'); }
+            if (m.sent) { rows.push('<div><b>נשלחה:</b> ' + esc(m.sent) + '</div>'); }
+            if (m.error) { rows.push('<div style="color:#b3352e"><b>שגיאה:</b> ' + esc(m.error) + '</div>'); }
+            return '<div class="wsn-msg-meta">' + rows.join('') + '</div><pre class="wsn-msg-text" dir="rtl">' + esc(m.body) + '</pre>';
+        }
+
+        function openModal(id) {
+            var wrap = document.createElement('div');
+            wrap.className = 'wsn-modal-backdrop';
+            var listHtml = msgs.map(function (m) {
+                var prev = (m.body || '').replace(/\s+/g, ' ').trim().slice(0, 45);
+                var when = m.sent || m.scheduled || m.created || '';
+                return '<li class="wsn-msg-li" data-id="' + m.id + '">' +
+                    '<span class="wsn-pill ' + pillClass(m.status) + '">' + esc(m.status_label) + '</span> ' +
+                    '<span class="wsn-msg-when">' + esc(when) + '</span> ' +
+                    '<span class="wsn-msg-prev">' + esc(prev) + '…</span></li>';
+            }).join('');
+            wrap.innerHTML =
+                '<div class="wsn-modal" dir="rtl">' +
+                '<div class="wsn-modal-head"><h2>פירוט הודעה</h2></div>' +
+                '<div class="wsn-modal-body"><div class="wsn-msg-full"></div>' +
+                '<h4 style="margin:16px 0 6px">כל ההודעות של ההזמנה</h4><ul class="wsn-msg-list">' + listHtml + '</ul></div>' +
+                '<div class="wsn-modal-actions"><button type="button" class="button wsn-modal-later">סגור</button></div>' +
+                '</div>';
+            document.body.appendChild(wrap);
+            var fullEl = wrap.querySelector('.wsn-msg-full');
+            function show(mid) {
+                var m = byId[String(mid)];
+                if (!m) { return; }
+                fullEl.innerHTML = fullHtml(m);
+                Array.prototype.forEach.call(wrap.querySelectorAll('.wsn-msg-li'), function (li) {
+                    li.classList.toggle('is-active', String(li.dataset.id) === String(mid));
+                });
+            }
+            show(id);
+            function close() { document.removeEventListener('keydown', onKey); wrap.remove(); }
+            function onKey(e) { if (e.key === 'Escape' || e.keyCode === 27) { close(); } }
+            document.addEventListener('keydown', onKey);
+            wrap.addEventListener('click', function (e) {
+                if (e.target === wrap) { close(); return; }
+                if (e.target.closest && e.target.closest('.wsn-modal-later')) { close(); return; }
+                var li = e.target.closest && e.target.closest('.wsn-msg-li');
+                if (li) { show(li.dataset.id); }
+            });
+        }
+
+        root.addEventListener('click', function (e) {
+            var eye = e.target.closest && e.target.closest('.wsn-hist-eye');
+            if (!eye) { return; }
+            e.preventDefault();
+            openModal(eye.dataset.id);
+        });
+    })();
+
     // חישוב קהל יעד להערכת קמפיין (חי)
     var countBtn = document.getElementById('wsn-count-btn');
     if (countBtn) {

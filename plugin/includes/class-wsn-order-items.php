@@ -453,10 +453,28 @@ class WSN_Order_Items
         $scheduled = WSN_Outbox::scheduled_for_order($order_id);
         $history = WSN_Outbox::history_for_order($order_id, 15);
         $now_ts = strtotime(current_time('mysql'));
+
+        // נתונים מלאים לכל הודעות ההזמנה — למודאל ה"עין"
+        $wsn_status_labels = ['draft' => 'טיוטה', 'queued' => 'ממתינה בתור', 'claimed' => 'בשליחה', 'sent' => 'נשלח', 'failed' => 'נכשל', 'cancelled' => 'בוטל', 'expired' => 'פג תוקף'];
+        $wsn_msgs_json = [];
+        foreach (WSN_Outbox::all_for_order($order_id, 50) as $m) {
+            $wsn_msgs_json[] = [
+                'id'           => (int) $m['id'],
+                'status'       => $m['status'],
+                'status_label' => $wsn_status_labels[$m['status']] ?? $m['status'],
+                'kind'         => $m['kind'],
+                'body'         => (string) $m['body'],
+                'created'      => $m['created_at'] ? mysql2date('d/m/Y H:i', $m['created_at']) : '',
+                'sent'         => $m['sent_at'] ? mysql2date('d/m/Y H:i', $m['sent_at']) : '',
+                'scheduled'    => $m['scheduled_at'] ? mysql2date('d/m/Y H:i', $m['scheduled_at']) : '',
+                'error'        => (string) ($m['last_error'] ?? ''),
+            ];
+        }
         ?>
         <div class="wsn wsn-events" dir="rtl"
              data-order-id="<?php echo (int) $order_id; ?>"
              data-nonce="<?php echo esc_attr(wp_create_nonce('wsn_item_events_' . $order_id)); ?>">
+            <script type="application/json" class="wsn-msgs-json"><?php echo wp_json_encode($wsn_msgs_json, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG); ?></script>
 
             <?php if ($order_drafts): ?>
                 <div class="wsn-pending" style="margin-bottom:14px">
@@ -585,7 +603,7 @@ class WSN_Order_Items
                         $st = (string) $h['status']; ?>
                         <tr>
                             <td><?php echo esc_html(mysql2date('d/m/Y H:i', $when)); ?></td>
-                            <td><?php echo esc_html(mb_substr((string) $h['body'], 0, 120)) . (mb_strlen((string) $h['body']) > 120 ? '…' : ''); ?></td>
+                            <td><button type="button" class="button-link wsn-hist-eye" data-id="<?php echo (int) $h['id']; ?>" title="הצג את ההודעה המלאה">👁 הצג</button></td>
                             <td>
                                 <span class="wsn-pill <?php echo esc_attr($hist_classes[$st] ?? 'wsn-pill-queued'); ?>"><?php echo esc_html($hist_labels[$st] ?? $st); ?></span>
                                 <?php if ($st === 'failed' && !empty($h['last_error'])): ?>
