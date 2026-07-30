@@ -27,7 +27,7 @@ $total = (int) ($params ? $wpdb->get_var($wpdb->prepare($count_sql, $params)) : 
 $rows_sql = "SELECT * FROM $t WHERE $where_sql ORDER BY id DESC LIMIT %d OFFSET %d";
 $rows = $wpdb->get_results($wpdb->prepare($rows_sql, array_merge($params, [$per, $offset])), ARRAY_A);
 
-$labels = ['queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נשלח',
+$labels = ['draft' => 'טיוטה', 'queued' => 'ממתין', 'claimed' => 'בטיפול', 'sent' => 'נשלח',
     'failed' => 'נכשל', 'cancelled' => 'בוטל', 'expired' => 'פג'];
 $cancellable = ['queued', 'claimed'];
 
@@ -147,6 +147,12 @@ try {
                     </td>
                     <td data-colname="סטטוס">
                         <span class="wsn-pill wsn-pill-<?php echo esc_attr($r['status']); ?>"><?php echo esc_html($labels[$r['status']] ?? $r['status']); ?></span>
+                        <?php if (in_array($r['status'], ['queued', 'claimed'], true)):
+                            $rem = max(0, (int) strtotime((string) $r['scheduled_at']) - (int) strtotime(current_time('mysql'))); ?>
+                            <div class="wsn-log-timer" data-remaining="<?php echo (int) $rem; ?>" style="margin-top:4px">
+                                <?php if ($rem > 0): ?>⏳ נשלחת בעוד <b><?php printf('%02d:%02d', intdiv($rem, 60), $rem % 60); ?></b><?php else: ?><span class="wsn-sched-now">מוכן לשליחה</span><?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                         <?php if ($r['last_error']): ?><br><small class="wsn-bad" title="<?php echo esc_attr($r['last_error']); ?>"><?php echo esc_html(mb_strimwidth($r['last_error'], 0, 40, '…')); ?></small><?php endif; ?>
                     </td>
                     <td data-colname="הזמנה"><?php echo $r['order_id'] ? '<a href="' . esc_url(admin_url('post.php?post=' . (int) $r['order_id'] . '&action=edit')) . '">#' . (int) $r['order_id'] . '</a>' : '—'; ?></td>
@@ -165,12 +171,13 @@ try {
     <?php
     $pages = (int) ceil($total / $per);
     if ($pages > 1) {
-        echo '<div class="tablenav"><div class="tablenav-pages">';
+        echo '<div class="wsn-pagenav">';
         echo paginate_links([
             'base' => add_query_arg('paged', '%#%'),
             'format' => '', 'current' => $paged, 'total' => $pages,
+            'prev_text' => '‹ הקודם', 'next_text' => 'הבא ›',
         ]);
-        echo '</div></div>';
+        echo '</div>';
     }
     ?>
 </div>

@@ -375,7 +375,23 @@
 .wsn-modes label { margin-inline-end: 12px; }
 
 /* ---------- מסך הודעות ממתינות ---------- */
-.wsn-pending-bar { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+.wsn-pending-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 14px 0; }
+.wsn-check-all-lbl { font-weight: 600; }
+.wsn-draft-select { flex: none; }
+/* פגינציה — פייג׳ר ממוספר נקי */
+.wsn-pagenav { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 22px 0 6px; }
+.wsn-pagenav .page-numbers {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 36px; height: 36px; padding: 0 12px;
+    border: 1px solid var(--wsn-border, #dfe5e3); border-radius: 9px;
+    background: #fff; color: var(--wsn-ink, #0f2e2b); text-decoration: none;
+    font-size: 13px; font-weight: 600; line-height: 1;
+    box-shadow: 0 1px 2px rgba(15, 46, 43, .05); transition: all .12s ease;
+}
+.wsn-pagenav a.page-numbers:hover { border-color: var(--wsn-accent, #0b7a6e); color: var(--wsn-accent, #0b7a6e); }
+.wsn-pagenav .page-numbers.current { background: var(--wsn-accent, #0b7a6e); border-color: var(--wsn-accent, #0b7a6e); color: #fff; }
+.wsn-pagenav .page-numbers.dots { border-color: transparent; background: none; box-shadow: none; min-width: 20px; padding: 0 2px; }
+.wsn-pill-draft { background: #eef2f1; color: #5b6b66; }
 .wsn-draft { margin-bottom: 14px; padding: 14px 16px; }
 .wsn-draft-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
 .wsn-draft-name { font-size: 14px; color: var(--wsn-ink, #0f2e2b); }

@@ -415,6 +415,12 @@
             }, 1000);
         }
 
+        function selectedCards() {
+            return Array.prototype.slice.call(pendingRoot.querySelectorAll('.wsn-draft-check:checked'))
+                .map(function (cb) { return cb.closest('.wsn-draft'); })
+                .filter(Boolean);
+        }
+
         pendingRoot.addEventListener('click', function (e) {
             var t = e.target;
             var card = t.closest ? t.closest('.wsn-draft') : null;
@@ -436,42 +442,63 @@
                     removeCard(card);
                 }).catch(function () { msg2.textContent = 'שגיאת רשת'; t.disabled = false; });
 
-            } else if (t.classList.contains('wsn-approve-all')) {
-                var cards = Array.prototype.slice.call(pendingRoot.querySelectorAll('.wsn-draft'));
-                if (!cards.length) { return; }
-                if (!window.confirm('לשלוח את כל ' + cards.length + ' ההודעות?')) { return; }
-                t.disabled = true; pendingBar.textContent = 'שולח הכל…';
-                var saves = cards.map(function (c) {
+            } else if (t.classList.contains('wsn-send-selected')) {
+                var sel = selectedCards();
+                if (!sel.length) { pendingBar.textContent = 'לא נבחרו הודעות'; return; }
+                if (!window.confirm('לשלוח ' + sel.length + ' הודעות נבחרות?')) { return; }
+                t.disabled = true; pendingBar.textContent = 'שולח…';
+                var saves = sel.map(function (c) {
                     return pPost('wsn_draft_save', { id: c.dataset.id, body: c.querySelector('.wsn-draft-body').value });
                 });
                 Promise.all(saves).then(function () {
-                    return pPost('wsn_draft_approve', { ids: cards.map(function (c) { return c.dataset.id; }) });
+                    return pPost('wsn_draft_approve', { ids: sel.map(function (c) { return c.dataset.id; }) });
                 }).then(function (d) {
-                    if (!d || !d.success) { pendingBar.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); t.disabled = false; return; }
-                    pendingBar.textContent = 'אושרו ' + (d.data.approved || cards.length) + ' הודעות — לפי הסדר, עם השהיה בין הודעות לאותו לקוח';
-                    if (t.parentNode) { t.remove(); }
-                    cards.forEach(function (c) { markScheduled(c, delayOf(d, c.dataset.id)); });
-                }).catch(function () { pendingBar.textContent = 'שגיאת רשת'; t.disabled = false; });
+                    t.disabled = false;
+                    if (!d || !d.success) { pendingBar.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); return; }
+                    pendingBar.textContent = 'אושרו ' + (d.data.approved || sel.length) + ' הודעות — לפי הסדר, עם השהיה בין הודעות לאותו לקוח';
+                    sel.forEach(function (c) { markScheduled(c, delayOf(d, c.dataset.id)); });
+                }).catch(function () { t.disabled = false; pendingBar.textContent = 'שגיאת רשת'; });
+
+            } else if (t.classList.contains('wsn-discard-selected')) {
+                var selD = selectedCards();
+                if (!selD.length) { pendingBar.textContent = 'לא נבחרו הודעות'; return; }
+                if (!window.confirm('למחוק ' + selD.length + ' הודעות נבחרות? הן לא יישלחו.')) { return; }
+                t.disabled = true; pendingBar.textContent = 'מוחק…';
+                pPost('wsn_draft_discard', { ids: selD.map(function (c) { return c.dataset.id; }) }).then(function (d) {
+                    t.disabled = false;
+                    if (!d || !d.success) { pendingBar.textContent = 'שגיאה: ' + ((d && d.data) || 'נכשל'); return; }
+                    selD.forEach(function (c) { dropCard(c); });
+                    pendingBar.textContent = 'נמחקו ' + (d.data.discarded || selD.length) + ' הודעות';
+                    if (!pendingRoot.querySelector('.wsn-draft')) { location.reload(); }
+                }).catch(function () { t.disabled = false; pendingBar.textContent = 'שגיאת רשת'; });
             }
+        });
+
+        pendingRoot.addEventListener('change', function (e) {
+            if (!e.target.classList.contains('wsn-check-all')) { return; }
+            var on = e.target.checked;
+            Array.prototype.forEach.call(pendingRoot.querySelectorAll('.wsn-draft-check'), function (cb) { cb.checked = on; });
         });
     }
 
-    // טיימר להודעות מתוזמנות בעמוד ההזמנה — מתמשך, נטען מהשרת בכל כניסה למסך
+    // טיימר להודעות מתוזמנות — מתמשך, נטען מהשרת. פועל בעמוד ההזמנה (.wsn-sched-item)
+    // וגם ביומן (.wsn-log-timer). מתעדכן מהזמן שנקבע בשרת, שורד רענון/יציאה וחזרה.
     (function () {
-        var items = document.querySelectorAll('.wsn-sched-item[data-remaining]');
-        Array.prototype.forEach.call(items, function (item) {
-            var rem = parseInt(item.dataset.remaining, 10) || 0;
-            var timer = item.querySelector('.wsn-sched-timer');
-            var statusEl = item.querySelector('.wsn-sched-status');
-            if (rem <= 0 || !timer) { return; }
+        var els = document.querySelectorAll('.wsn-sched-item[data-remaining], .wsn-log-timer[data-remaining]');
+        Array.prototype.forEach.call(els, function (el) {
+            var rem = parseInt(el.dataset.remaining, 10) || 0;
+            var b = el.querySelector('b');
+            if (rem <= 0 || !b) { return; }
+            var isLog = el.classList.contains('wsn-log-timer');
             var end = Date.now() + rem * 1000;
             var iv = setInterval(function () {
                 var r = Math.max(0, Math.round((end - Date.now()) / 1000));
                 var mm = Math.floor(r / 60), ss = r % 60;
-                timer.textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+                b.textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
                 if (r <= 0) {
                     clearInterval(iv);
-                    if (statusEl) { statusEl.innerHTML = '<span class="wsn-sched-now">בשליחה כעת…</span>'; }
+                    var doneEl = el.querySelector('.wsn-sched-status') || el;
+                    doneEl.innerHTML = '<span class="wsn-sched-now">' + (isLog ? 'מוכן לשליחה' : 'בשליחה כעת…') + '</span>';
                 }
             }, 1000);
         });

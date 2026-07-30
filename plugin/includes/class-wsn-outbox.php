@@ -238,6 +238,24 @@ class WSN_Outbox
         return $row ?: null;
     }
 
+    /** טיוטות מדופדפות למסך "הודעות ממתינות" — ותיק-ראשון (FIFO) */
+    public static function drafts_page(int $page = 1, int $per = 15): array
+    {
+        global $wpdb;
+        $t = self::table();
+        $per = min(100, max(1, $per));
+        $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE status='draft'");
+        $pages = $total > 0 ? (int) ceil($total / $per) : 1;
+        $page = min(max(1, $page), $pages);
+        $offset = ($page - 1) * $per;
+        $items = (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, kind, phone_e164, body, order_id, created_at
+             FROM $t WHERE status='draft' ORDER BY id ASC LIMIT %d OFFSET %d",
+            $per, $offset
+        ), ARRAY_A);
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'per' => $per, 'pages' => $pages];
+    }
+
     /** טיוטות של הזמנה מסוימת — לאישור מתוך עמוד ההזמנה */
     public static function drafts_for_order(int $order_id): array
     {
