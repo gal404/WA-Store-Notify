@@ -249,6 +249,30 @@ class WSN_Outbox
         ), ARRAY_A);
     }
 
+    /** הודעות שאושרו וממתינות לשליחה (בתור) להזמנה — לתצוגת "מושהות" עם טיימר */
+    public static function scheduled_for_order(int $order_id): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, body, status, scheduled_at, attempts
+             FROM " . self::table() . "
+             WHERE order_id=%d AND status IN ('queued','claimed')
+             ORDER BY scheduled_at ASC, id ASC", $order_id
+        ), ARRAY_A);
+    }
+
+    /** היסטוריית שליחה של הזמנה (נשלח/נכשל/בוטל) — עם תאריך ושעה */
+    public static function history_for_order(int $order_id, int $limit = 20): array
+    {
+        global $wpdb;
+        return (array) $wpdb->get_results($wpdb->prepare(
+            "SELECT id, body, status, sent_at, created_at, last_error
+             FROM " . self::table() . "
+             WHERE order_id=%d AND status IN ('sent','failed','cancelled','expired')
+             ORDER BY id DESC LIMIT %d", $order_id, $limit
+        ), ARRAY_A);
+    }
+
     /** עריכת גוף ההודעה — רק לטיוטה שעדיין לא אושרה */
     public static function update_body(int $id, string $body): bool
     {

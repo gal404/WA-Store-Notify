@@ -456,6 +456,27 @@
         });
     }
 
+    // טיימר להודעות מתוזמנות בעמוד ההזמנה — מתמשך, נטען מהשרת בכל כניסה למסך
+    (function () {
+        var items = document.querySelectorAll('.wsn-sched-item[data-remaining]');
+        Array.prototype.forEach.call(items, function (item) {
+            var rem = parseInt(item.dataset.remaining, 10) || 0;
+            var timer = item.querySelector('.wsn-sched-timer');
+            var statusEl = item.querySelector('.wsn-sched-status');
+            if (rem <= 0 || !timer) { return; }
+            var end = Date.now() + rem * 1000;
+            var iv = setInterval(function () {
+                var r = Math.max(0, Math.round((end - Date.now()) / 1000));
+                var mm = Math.floor(r / 60), ss = r % 60;
+                timer.textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+                if (r <= 0) {
+                    clearInterval(iv);
+                    if (statusEl) { statusEl.innerHTML = '<span class="wsn-sched-now">בשליחה כעת…</span>'; }
+                }
+            }, 1000);
+        });
+    })();
+
     // חישוב קהל יעד להערכת קמפיין (חי)
     var countBtn = document.getElementById('wsn-count-btn');
     if (countBtn) {

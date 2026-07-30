@@ -450,6 +450,9 @@ class WSN_Order_Items
         $events = WSN_Item_Events::for_order($order_id);
         $unnotified = WSN_Item_Events::unnotified($order_id);
         $order_drafts = WSN_Outbox::drafts_for_order($order_id);
+        $scheduled = WSN_Outbox::scheduled_for_order($order_id);
+        $history = WSN_Outbox::history_for_order($order_id, 15);
+        $now_ts = strtotime(current_time('mysql'));
         ?>
         <div class="wsn wsn-events" dir="rtl"
              data-order-id="<?php echo (int) $order_id; ?>"
@@ -465,6 +468,25 @@ class WSN_Order_Items
                                 <button type="button" class="button button-primary wsn-draft-send">שלח</button>
                                 <button type="button" class="button wsn-draft-discard">מחק</button>
                                 <span class="wsn-draft-msg description"></span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($scheduled): ?>
+                <div class="wsn-sched" style="margin-bottom:14px">
+                    <p style="margin:0 0 8px"><b>ממתינות לשליחה</b> — נשלחות אוטומטית בזמן שנקבע.</p>
+                    <?php foreach ($scheduled as $sc):
+                        $rem = max(0, (int) strtotime((string) $sc['scheduled_at']) - $now_ts); ?>
+                        <div class="wsn-sched-item wsn-card" data-remaining="<?php echo (int) $rem; ?>">
+                            <div class="wsn-sched-body"><?php echo esc_html(mb_substr((string) $sc['body'], 0, 160)) . (mb_strlen((string) $sc['body']) > 160 ? '…' : ''); ?></div>
+                            <div class="wsn-sched-status">
+                                <?php if ($rem > 0): ?>
+                                    ⏳ נשלחת בעוד <b class="wsn-sched-timer"><?php printf('%02d:%02d', intdiv($rem, 60), $rem % 60); ?></b> דק׳
+                                <?php else: ?>
+                                    <span class="wsn-sched-now">בשליחה כעת…</span>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -544,6 +566,32 @@ class WSN_Order_Items
                             </td>
                             <td><?php echo esc_html($user ? $user->display_name : '—'); ?></td>
                             <td><button type="button" class="button-link wsn-ev-del" data-id="<?php echo (int) $e['id']; ?>" title="מחק תנועה" style="color:#b32d2e">מחק</button></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+
+            <?php if ($history):
+                $hist_labels  = ['sent' => 'נשלח', 'failed' => 'נכשל', 'cancelled' => 'בוטל', 'expired' => 'פג תוקף'];
+                $hist_classes = ['sent' => 'wsn-pill-sent', 'failed' => 'wsn-pill-failed', 'cancelled' => 'wsn-pill-queued', 'expired' => 'wsn-pill-queued'];
+                ?>
+                <h4 style="margin:16px 0 6px">היסטוריית שליחה</h4>
+                <table class="widefat striped">
+                    <thead><tr><th>מתי</th><th>הודעה</th><th>סטטוס</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($history as $h):
+                        $when = $h['sent_at'] ?: $h['created_at'];
+                        $st = (string) $h['status']; ?>
+                        <tr>
+                            <td><?php echo esc_html(mysql2date('d/m/Y H:i', $when)); ?></td>
+                            <td><?php echo esc_html(mb_substr((string) $h['body'], 0, 120)) . (mb_strlen((string) $h['body']) > 120 ? '…' : ''); ?></td>
+                            <td>
+                                <span class="wsn-pill <?php echo esc_attr($hist_classes[$st] ?? 'wsn-pill-queued'); ?>"><?php echo esc_html($hist_labels[$st] ?? $st); ?></span>
+                                <?php if ($st === 'failed' && !empty($h['last_error'])): ?>
+                                    <br><span class="description"><?php echo esc_html($h['last_error']); ?></span>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

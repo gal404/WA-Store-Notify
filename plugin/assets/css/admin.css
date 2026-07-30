@@ -391,6 +391,16 @@
 .wsn-draft-timer b { font-variant-numeric: tabular-nums; font-size: 15px; }
 .wsn-draft-sent { color: #1f9d57; font-weight: 700; }
 
+/* הודעות מתוזמנות (ממתינות לשליחה) בעמוד ההזמנה */
+.wsn-sched-item { padding: 12px 14px; margin-bottom: 8px; border-inline-start: 3px solid #b3730a; }
+.wsn-sched-body { font-size: 13.5px; margin-bottom: 6px; white-space: pre-wrap; }
+.wsn-sched-status { color: #b3730a; font-weight: 600; }
+.wsn-sched-timer { font-variant-numeric: tabular-nums; font-size: 15px; }
+.wsn-sched-now { color: #1f9d57; font-weight: 600; }
+/* פילים להיסטוריית שליחה */
+.wsn-pill-sent { background: #e4f5ea; color: #1f7a44; }
+.wsn-pill-failed { background: #fde8e6; color: #b3352e; }
+
 /* ---------- מסך תבניות: שורות מכווצות ---------- */
 .wsn-tpl-group { background: #fff; border: 1px solid var(--wsn-border, #dfe5e3); border-radius: 10px; overflow: hidden; margin: 8px 0 20px; }
 .wsn-tpl-row + .wsn-tpl-row { border-top: 1px solid var(--wsn-border, #dfe5e3); }
