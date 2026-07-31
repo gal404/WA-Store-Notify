@@ -3,7 +3,9 @@ defined('ABSPATH') || exit;
 
 class WSN_Admin
 {
-    const CAP = 'manage_wa_notify';
+    // הרשאה לצפייה/שימוש במסכי התוסף. 'edit_posts' = כל הצוות (מנהל, מנהל חנות,
+    // עורך, כותב) בלי תלות בתפקיד ספציפי — אך לא חשבונות לקוח (הגנה על פרטיות).
+    const CAP = 'edit_posts';
 
     public static function init(): void
     {

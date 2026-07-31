@@ -200,7 +200,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_item_events_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $pending = WSN_Item_Events::pending($order_id);
@@ -234,7 +234,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_item_events_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $order = wc_get_order($order_id);
@@ -272,7 +272,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_item_events_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $order = wc_get_order($order_id);
@@ -311,7 +311,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_item_events_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $reasons = (array) ($_POST['reasons'] ?? []);
@@ -350,7 +350,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_item_events_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $event_id = (int) ($_POST['event_id'] ?? 0);
@@ -369,7 +369,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_item_events_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $event_id = (int) ($_POST['event_id'] ?? 0);
@@ -440,7 +440,7 @@ class WSN_Order_Items
     public static function render_events_metabox($post_or_order): void
     {
         $order = $post_or_order instanceof WC_Order ? $post_or_order : wc_get_order($post_or_order->ID ?? 0);
-        if (!$order instanceof WC_Order || !current_user_can('manage_wa_notify')) {
+        if (!$order instanceof WC_Order || !current_user_can('edit_posts')) {
             return;
         }
         // אתחול שקט: פריטים קיימים לא נרשמים כ"נוספו עכשיו"
@@ -622,7 +622,7 @@ class WSN_Order_Items
     public static function render_metabox($post_or_order): void
     {
         $order = $post_or_order instanceof WC_Order ? $post_or_order : wc_get_order($post_or_order->ID ?? 0);
-        if (!$order || !current_user_can('manage_wa_notify')) {
+        if (!$order || !current_user_can('edit_posts')) {
             echo '<p>אין הרשאה.</p>';
             return;
         }
@@ -687,7 +687,7 @@ class WSN_Order_Items
     {
         $order_id = (int) ($_POST['order_id'] ?? 0);
         check_ajax_referer('wsn_items_notify_' . $order_id);
-        if (!current_user_can('manage_wa_notify')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('אין הרשאה', 403);
         }
         $order = wc_get_order($order_id);
