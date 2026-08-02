@@ -48,6 +48,7 @@ class WSN_Settings
             // סיבות לתנועות פריטים — ניתנות לעריכה בלי שינוי קוד
             'item_reasons_removed'     => WSN_Item_Events::DEFAULT_REASONS_REMOVED,
             'item_reasons_added'       => WSN_Item_Events::DEFAULT_REASONS_ADDED,
+            'item_reasons_price'       => WSN_Item_Events::DEFAULT_REASONS_PRICE,
             // מצב שליחה לכל סוג שינוי: auto = נשלח לבד, manual = רק בלחיצה.
             // ברירת מחדל manual בכוונה — ההודעה נבנית לבד, השליחה באישור.
             'send_mode_item_added'      => 'manual',

@@ -12,15 +12,17 @@ class WSN_Item_Events
     const TYPE_QTY     = 'qty_changed';
     const TYPE_ADDED   = 'item_added';
     const TYPE_REMOVED = 'item_removed';
+    const TYPE_PRICE   = 'price_changed';
     const TYPE_STATUS  = 'status_changed';
     const TYPE_NOTE    = 'note_changed';
 
     /** רק תנועות-פריטים דורשות בחירת סיבה מהמנהל (סטטוס/הערה — לא) */
-    const REASONED_TYPES = [self::TYPE_QTY, self::TYPE_ADDED, self::TYPE_REMOVED];
+    const REASONED_TYPES = [self::TYPE_QTY, self::TYPE_ADDED, self::TYPE_REMOVED, self::TYPE_PRICE];
 
     /** ברירות מחדל — משמשות עד שהמנהל עורך את הרשימות במסך ההגדרות */
     const DEFAULT_REASONS_REMOVED = "אזל מהמלאי\nלבקשת הלקוח\nללא סיבה";
     const DEFAULT_REASONS_ADDED   = "לבקשת הלקוח\nהחלפה למוצר אחר\nללא סיבה";
+    const DEFAULT_REASONS_PRICE   = "הנחה\nהתאמת מחיר\nטעות תמחור\nללא סיבה";
 
     /**
      * הסיבות האפשריות לסוג אירוע, נקראות מההגדרות כדי שאפשר יהיה להוסיף
@@ -30,7 +32,13 @@ class WSN_Item_Events
      */
     public static function reasons(string $type): array
     {
-        $setting = $type === self::TYPE_ADDED ? 'item_reasons_added' : 'item_reasons_removed';
+        if ($type === self::TYPE_ADDED) {
+            $setting = 'item_reasons_added';
+        } elseif ($type === self::TYPE_PRICE) {
+            $setting = 'item_reasons_price';
+        } else {
+            $setting = 'item_reasons_removed';
+        }
         $raw = (string) WSN_Settings::get($setting);
         $out = [];
         foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
@@ -212,6 +220,8 @@ class WSN_Item_Events
                 return sprintf('נוסף %s (כמות %d)', $name, (int) $e['qty_after']);
             case self::TYPE_REMOVED:
                 return sprintf('הוסר %s (כמות %d)', $name, (int) $e['qty_before']);
+            case self::TYPE_PRICE:
+                return sprintf('מחיר %s: %s ← %s', $name, (string) ($e['old_value'] ?? ''), (string) ($e['new_value'] ?? ''));
             case self::TYPE_STATUS:
                 return sprintf('סטטוס הזמנה: %s ← %s', (string) ($e['old_value'] ?? ''), (string) ($e['new_value'] ?? ''));
             case self::TYPE_NOTE:

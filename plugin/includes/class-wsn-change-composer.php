@@ -14,6 +14,7 @@ class WSN_Change_Composer
             'item_added'      => 'הוספת מוצר',
             'item_removed'    => 'הסרת מוצר',
             'qty_changed'     => 'שינוי כמות',
+            'price_changed'   => 'שינוי מחיר',
             'order_status'    => 'שינוי סטטוס הזמנה',
             'order_cancelled' => 'ביטול הזמנה',
             'customer_note'   => 'שינוי הערת לקוח',
@@ -32,6 +33,7 @@ class WSN_Change_Composer
         switch ($event_type) {
             case WSN_Item_Events::TYPE_ADDED:   return 'item_added';
             case WSN_Item_Events::TYPE_REMOVED: return 'item_removed';
+            case WSN_Item_Events::TYPE_PRICE:   return 'price_changed';
             case WSN_Item_Events::TYPE_STATUS:  return 'order_status';
             case WSN_Item_Events::TYPE_NOTE:    return 'customer_note';
             default:                            return 'qty_changed';
@@ -48,6 +50,9 @@ class WSN_Change_Composer
                 break;
             case WSN_Item_Events::TYPE_REMOVED:
                 $txt = sprintf('הוסר: %s', $name);
+                break;
+            case WSN_Item_Events::TYPE_PRICE:
+                $txt = sprintf('מחיר %s שונה מ-%s ל-%s', $name, (string) ($event['old_value'] ?? ''), (string) ($event['new_value'] ?? ''));
                 break;
             case WSN_Item_Events::TYPE_STATUS:
                 // סטטוס/הערה — אין להם "סיבה", מחזירים ישירות

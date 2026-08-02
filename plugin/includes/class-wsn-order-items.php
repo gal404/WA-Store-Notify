@@ -38,10 +38,11 @@ class WSN_Order_Items
         $state = [];
         foreach ($order->get_items() as $item_id => $item) {
             $state[(string) $item_id] = [
-                'name' => $item->get_name(),
-                'qty'  => (int) $item->get_quantity(),
-                'pid'  => (int) $item->get_product_id(),
-                'vid'  => (int) $item->get_variation_id(),
+                'name'  => $item->get_name(),
+                'qty'   => (int) $item->get_quantity(),
+                'pid'   => (int) $item->get_product_id(),
+                'vid'   => (int) $item->get_variation_id(),
+                'total' => round((float) $item->get_total(), 2), // סכום השורה — לזיהוי שינוי מחיר
             ];
         }
         return $state;
@@ -136,7 +137,7 @@ class WSN_Order_Items
         self::save_state($order, $state);
     }
 
-    /** שינויי כמות: משווים את המצב הנוכחי למצב האחרון הידוע */
+    /** שינויי כמות ומחיר: משווים את המצב הנוכחי למצב האחרון הידוע */
     public static function on_saved_items($order_id, $items): void
     {
         $order = wc_get_order($order_id);
@@ -147,8 +148,13 @@ class WSN_Order_Items
         $now  = self::snapshot_state($order);
 
         foreach ($now as $item_id => $cur) {
-            $before = $prev[$item_id]['qty'] ?? null;
-            if ($before !== null && (int) $before !== (int) $cur['qty']) {
+            $before = $prev[$item_id] ?? null;
+            if ($before === null) {
+                continue; // פריט חדש — מטופל ב-on_new_item
+            }
+            $qty_before = (int) ($before['qty'] ?? 0);
+            if ($qty_before !== (int) $cur['qty']) {
+                // שינוי כמות
                 WSN_Item_Events::record([
                     'order_id'      => $order->get_id(),
                     'order_item_id' => (int) $item_id,
@@ -156,12 +162,33 @@ class WSN_Order_Items
                     'product_id'    => $cur['pid'],
                     'variation_id'  => $cur['vid'],
                     'item_name'     => $cur['name'],
-                    'qty_before'    => (int) $before,
+                    'qty_before'    => $qty_before,
                     'qty_after'     => (int) $cur['qty'],
+                ]);
+            } elseif (array_key_exists('total', $before)
+                && abs((float) $before['total'] - (float) $cur['total']) > 0.001) {
+                // שינוי מחיר (הכמות לא השתנתה, סכום השורה כן) — עם מ-X ל-Y
+                WSN_Item_Events::record([
+                    'order_id'      => $order->get_id(),
+                    'order_item_id' => (int) $item_id,
+                    'event_type'    => WSN_Item_Events::TYPE_PRICE,
+                    'product_id'    => $cur['pid'],
+                    'variation_id'  => $cur['vid'],
+                    'item_name'     => $cur['name'],
+                    'old_value'     => self::price_str((float) $before['total']),
+                    'new_value'     => self::price_str((float) $cur['total']),
                 ]);
             }
         }
         self::save_state($order, $now);
+    }
+
+    /** מחיר מעוצב עם סימן מטבע לתצוגה בתנועה ובהודעה */
+    private static function price_str(float $v): string
+    {
+        return function_exists('wc_price')
+            ? html_entity_decode(wp_strip_all_tags(wc_price($v)))
+            : number_format($v, 2);
     }
 
     /**

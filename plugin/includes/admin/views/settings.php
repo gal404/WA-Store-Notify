@@ -99,6 +99,10 @@ $post = admin_url('admin-post.php');
                 <textarea name="item_reasons_added" rows="4" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['item_reasons_added']); ?></textarea>
                 <p class="description">סיבה בכל שורה. מוצגות במודאל כשמוסיפים פריט להזמנה. "אחר" נוסף תמיד אוטומטית.</p>
             </td></tr>
+            <tr><th>סיבות לשינוי מחיר</th><td>
+                <textarea name="item_reasons_price" rows="4" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['item_reasons_price']); ?></textarea>
+                <p class="description">סיבה בכל שורה. מוצגות במודאל כשמשנים מחיר של פריט בהזמנה. "אחר" נוסף תמיד אוטומטית.</p>
+            </td></tr>
             <tr><th>מילות הסרה</th><td>
                 <textarea name="optout_keywords" rows="3" class="wsn-w-md" dir="rtl"><?php echo esc_textarea($s['optout_keywords']); ?></textarea>
                 <p class="description">מילה בכל שורה. לקוח ששולח אחת מהן — מוסר לצמיתות.</p>

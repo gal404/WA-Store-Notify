@@ -50,6 +50,7 @@ $change_group = [
     'item_removed_multi' => 'כמה פריטים אזלו מהמלאי (רשימה)',
     'item_added'         => 'נוסף פריט להזמנה',
     'qty_changed'        => 'שינוי כמות',
+    'price_changed'      => 'שינוי מחיר',
     'item_replaced'      => 'פריט הוחלף באחר',
     'order_changes'      => 'כמה שינויים יחד',
     'customer_note'      => 'שינוי הערת לקוח',
