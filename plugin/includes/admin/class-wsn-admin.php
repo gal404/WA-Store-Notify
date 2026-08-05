@@ -259,7 +259,8 @@ class WSN_Admin
         $ints = ['trans_min_gap_s', 'trans_max_gap_s', 'trans_hourly_cap', 'trans_daily_cap',
             'camp_min_gap_s', 'camp_max_gap_s', 'camp_hourly_cap', 'camp_daily_cap',
             'cust_gap_min_s', 'cust_gap_max_s',
-            'typo_ratio', 'expiry_hours', 'retention_days', 'warmup_enabled', 'checkout_optin_enabled'];
+            'typo_ratio', 'expiry_hours', 'retention_days', 'warmup_enabled', 'checkout_optin_enabled',
+            'tracking_url_no_number'];
         foreach ($ints as $k) {
             $changes[$k] = max(0, (int) ($in[$k] ?? 0));
         }

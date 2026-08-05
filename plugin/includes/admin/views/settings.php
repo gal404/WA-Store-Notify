@@ -76,6 +76,7 @@ $post = admin_url('admin-post.php');
             <tr><th>כתובת מעקב גורפת</th><td>
                 <input type="text" name="tracking_url_base" value="<?php echo esc_attr($s['tracking_url_base']); ?>" class="wsn-w-lg" dir="ltr" placeholder="https://track.example.com/{number}">
                 <p class="description">כתובת מעקב אחת לכל ההזמנות. <code dir="ltr">{number}</code> יוחלף במספר המעקב (ואם אין <code dir="ltr">{number}</code> — המספר יצורף לסוף הכתובת). כך <code dir="ltr">{tracking_url}</code> בתבניות יתמלא אוטומטית לכל הזמנה, גם ל-CARGO. השאר ריק אם אתה מזין קישור ידני פר-הזמנה.</p>
+                <label><input type="checkbox" name="tracking_url_no_number" value="1" <?php checked($s['tracking_url_no_number']); ?>> אל תצרף את מספר המעקב לכתובת (השתמש בכתובת כפי שהיא — כתובת מעקב קבועה)</label>
             </td></tr>
             <tr><th>מתי לבנות את הודעת המעקב</th><td>
                 <select name="tracking_notify_status">

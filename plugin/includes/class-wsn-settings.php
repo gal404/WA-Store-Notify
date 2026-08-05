@@ -35,6 +35,8 @@ class WSN_Settings
             'tracking_notify_status'   => '',
             // תבנית כתובת מעקב גורפת: {number} יוחלף במספר (או יצורף לסוף אם אין placeholder)
             'tracking_url_base'        => '',
+            // אל תצרף את מספר המעקב לכתובת — השתמש בכתובת כפי שהיא (כתובת קבועה)
+            'tracking_url_no_number'   => 0,
             // הסרה
             'optout_keywords'          => "הסר\nהסירו אותי\nstop",
             // כללי

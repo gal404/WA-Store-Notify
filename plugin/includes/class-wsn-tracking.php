@@ -83,6 +83,10 @@ class WSN_Tracking
         if ($base === '') {
             return '';
         }
+        // אופציה: כתובת קבועה בלי מספר המעקב — מחזירים אותה כמו שהיא
+        if ((int) WSN_Settings::get('tracking_url_no_number')) {
+            return $base;
+        }
         if (strpos($base, '{number}') !== false) {
             return str_replace('{number}', rawurlencode($number), $base);
         }
