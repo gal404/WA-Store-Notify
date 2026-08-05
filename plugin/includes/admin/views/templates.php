@@ -51,6 +51,7 @@ $change_group = [
     'item_added'         => 'נוסף פריט להזמנה',
     'qty_changed'        => 'שינוי כמות',
     'price_changed'      => 'שינוי מחיר',
+    'order_cancelled'    => 'ביטול הזמנה',
     'item_replaced'      => 'פריט הוחלף באחר',
     'order_changes'      => 'כמה שינויים יחד',
     'customer_note'      => 'שינוי הערת לקוח',

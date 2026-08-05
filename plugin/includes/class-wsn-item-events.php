@@ -9,20 +9,22 @@ defined('ABSPATH') || exit;
  */
 class WSN_Item_Events
 {
-    const TYPE_QTY     = 'qty_changed';
-    const TYPE_ADDED   = 'item_added';
-    const TYPE_REMOVED = 'item_removed';
-    const TYPE_PRICE   = 'price_changed';
-    const TYPE_STATUS  = 'status_changed';
-    const TYPE_NOTE    = 'note_changed';
+    const TYPE_QTY       = 'qty_changed';
+    const TYPE_ADDED     = 'item_added';
+    const TYPE_REMOVED   = 'item_removed';
+    const TYPE_PRICE     = 'price_changed';
+    const TYPE_STATUS    = 'status_changed';
+    const TYPE_NOTE      = 'note_changed';
+    const TYPE_CANCELLED = 'order_cancelled';
 
-    /** רק תנועות-פריטים דורשות בחירת סיבה מהמנהל (סטטוס/הערה — לא) */
-    const REASONED_TYPES = [self::TYPE_QTY, self::TYPE_ADDED, self::TYPE_REMOVED, self::TYPE_PRICE];
+    /** סוגים שדורשים בחירת סיבה מהמנהל (מודאל). סטטוס רגיל/הערה — לא. */
+    const REASONED_TYPES = [self::TYPE_QTY, self::TYPE_ADDED, self::TYPE_REMOVED, self::TYPE_PRICE, self::TYPE_CANCELLED];
 
     /** ברירות מחדל — משמשות עד שהמנהל עורך את הרשימות במסך ההגדרות */
     const DEFAULT_REASONS_REMOVED = "אזל מהמלאי\nלבקשת הלקוח\nללא סיבה";
     const DEFAULT_REASONS_ADDED   = "לבקשת הלקוח\nהחלפה למוצר אחר\nללא סיבה";
     const DEFAULT_REASONS_PRICE   = "הנחה\nהתאמת מחיר\nטעות תמחור\nללא סיבה";
+    const DEFAULT_REASONS_CANCEL  = "לבקשת הלקוח\nאזל מהמלאי\nבעיית תשלום\nכפילות בהזמנה\nללא סיבה";
 
     /**
      * הסיבות האפשריות לסוג אירוע, נקראות מההגדרות כדי שאפשר יהיה להוסיף
@@ -36,6 +38,8 @@ class WSN_Item_Events
             $setting = 'item_reasons_added';
         } elseif ($type === self::TYPE_PRICE) {
             $setting = 'item_reasons_price';
+        } elseif ($type === self::TYPE_CANCELLED) {
+            $setting = 'item_reasons_cancel';
         } else {
             $setting = 'item_reasons_removed';
         }
@@ -224,6 +228,8 @@ class WSN_Item_Events
                 return sprintf('מחיר %s: %s ← %s', $name, (string) ($e['old_value'] ?? ''), (string) ($e['new_value'] ?? ''));
             case self::TYPE_STATUS:
                 return sprintf('סטטוס הזמנה: %s ← %s', (string) ($e['old_value'] ?? ''), (string) ($e['new_value'] ?? ''));
+            case self::TYPE_CANCELLED:
+                return 'ההזמנה בוטלה';
             case self::TYPE_NOTE:
                 return 'הערת הלקוח עודכנה';
             default:

@@ -277,6 +277,7 @@ class WSN_Admin
         $changes['item_reasons_removed'] = sanitize_textarea_field($in['item_reasons_removed'] ?? '');
         $changes['item_reasons_added'] = sanitize_textarea_field($in['item_reasons_added'] ?? '');
         $changes['item_reasons_price'] = sanitize_textarea_field($in['item_reasons_price'] ?? '');
+        $changes['item_reasons_cancel'] = sanitize_textarea_field($in['item_reasons_cancel'] ?? '');
         $changes['checkout_optin_label'] = sanitize_text_field($in['checkout_optin_label'] ?? '');
         $changes['test_phone'] = sanitize_text_field($in['test_phone'] ?? '');
         $changes['alert_email'] = sanitize_email($in['alert_email'] ?? '');

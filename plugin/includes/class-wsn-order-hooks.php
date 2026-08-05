@@ -26,6 +26,20 @@ class WSN_Order_Hooks
             WSN_Contacts::record_paid_order($order);
         }
 
+        // ביטול הזמנה — לוכדים סיבה מהמנהל (מודאל), וההודעה מורכבת מהסיבה דרך
+        // תיבת "בנה הודעה" בעמוד ההזמנה (ולא מתבנית סטטוס). reasoned + notified=0.
+        if ($new === 'cancelled') {
+            WSN_Item_Events::record([
+                'order_id'   => $order->get_id(),
+                'event_type' => WSN_Item_Events::TYPE_CANCELLED,
+                'item_name'  => 'ביטול הזמנה',
+                'old_value'  => wc_get_order_status_name($old),
+                'new_value'  => wc_get_order_status_name($new),
+                'notified'   => 0,
+            ]);
+            return;
+        }
+
         // הודעת סטטוס נוצרת כ*טיוטה לאישור* — לא נשלחת מעצמה. תנאי: תבנית מופעלת
         // לסטטוס, טלפון תקין, ולקוח שלא הוסר מהתפוצה. המנהל מאשר במסך "הודעות ממתינות".
         $tpl = WSN_Templates::get('wc-' . $new);
