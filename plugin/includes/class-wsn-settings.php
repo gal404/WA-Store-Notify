@@ -33,6 +33,8 @@ class WSN_Settings
             'tracking_meta_key'        => '',
             // מתי לבנות את טיוטת הודעת המעקב: '' = מיד כשמתקבל מספר; 'wc-…' = רק בסטטוס הזה
             'tracking_notify_status'   => '',
+            // תבנית כתובת מעקב גורפת: {number} יוחלף במספר (או יצורף לסוף אם אין placeholder)
+            'tracking_url_base'        => '',
             // הסרה
             'optout_keywords'          => "הסר\nהסירו אותי\nstop",
             // כללי

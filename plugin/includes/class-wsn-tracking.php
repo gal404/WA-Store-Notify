@@ -55,8 +55,42 @@ class WSN_Tracking
         }
     }
 
-    /** מחזיר ['number' => ..., 'url' => ...] — ריקים אם אין */
+    /**
+     * מחזיר ['number' => ..., 'url' => ...] — ריקים אם אין.
+     * אם אין קישור ספציפי להזמנה, בונים אותו מתבנית הכתובת הגורפת בהגדרות.
+     */
     public static function get(WC_Order $order): array
+    {
+        $t = self::get_raw($order);
+        $number = trim((string) ($t['number'] ?? ''));
+        if ($number === '') {
+            return ['number' => '', 'url' => ''];
+        }
+        $url = trim((string) ($t['url'] ?? ''));
+        if ($url === '') {
+            $url = self::build_url($number); // כתובת מעקב גורפת (אם הוגדרה)
+        }
+        return ['number' => $number, 'url' => $url];
+    }
+
+    /**
+     * בונה כתובת מעקב ממספר, לפי התבנית הגורפת בהגדרות (tracking_url_base).
+     * {number} בתבנית מוחלף במספר; אם אין placeholder — המספר מצורף לסוף.
+     */
+    private static function build_url(string $number): string
+    {
+        $base = trim((string) WSN_Settings::get('tracking_url_base'));
+        if ($base === '') {
+            return '';
+        }
+        if (strpos($base, '{number}') !== false) {
+            return str_replace('{number}', rawurlencode($number), $base);
+        }
+        return $base . rawurlencode($number);
+    }
+
+    /** מקור מספר/קישור המעקב מההזמנה (ידני / CSLFW / meta מוגדר) */
+    private static function get_raw(WC_Order $order): array
     {
         // 1. השדה הידני שלנו
         $manual = trim((string) $order->get_meta('_wsn_tracking_number'));

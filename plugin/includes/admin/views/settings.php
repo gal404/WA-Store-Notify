@@ -73,6 +73,10 @@ $post = admin_url('admin-post.php');
                 </datalist>
                 <p class="description">מאיפה למשוך מספר מעקב אם לא הוזן ידנית בהזמנה. ריק = רק השדה הידני. (משלוחי CARGO מזוהים אוטומטית גם בלי הגדרה.)</p>
             </td></tr>
+            <tr><th>כתובת מעקב גורפת</th><td>
+                <input type="text" name="tracking_url_base" value="<?php echo esc_attr($s['tracking_url_base']); ?>" class="wsn-w-lg" dir="ltr" placeholder="https://track.example.com/{number}">
+                <p class="description">כתובת מעקב אחת לכל ההזמנות. <code dir="ltr">{number}</code> יוחלף במספר המעקב (ואם אין <code dir="ltr">{number}</code> — המספר יצורף לסוף הכתובת). כך <code dir="ltr">{tracking_url}</code> בתבניות יתמלא אוטומטית לכל הזמנה, גם ל-CARGO. השאר ריק אם אתה מזין קישור ידני פר-הזמנה.</p>
+            </td></tr>
             <tr><th>מתי לבנות את הודעת המעקב</th><td>
                 <select name="tracking_notify_status">
                     <option value="" <?php selected($s['tracking_notify_status'] ?? '', ''); ?>>מיד כשמתקבל מספר מעקב</option>

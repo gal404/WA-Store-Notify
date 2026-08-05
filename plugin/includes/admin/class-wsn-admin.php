@@ -268,6 +268,8 @@ class WSN_Admin
         }
         $changes['warmup_started'] = preg_match('/^\d{4}-\d{2}-\d{2}$/', $in['warmup_started'] ?? '') ? $in['warmup_started'] : '';
         $changes['tracking_meta_key'] = sanitize_text_field($in['tracking_meta_key'] ?? '');
+        // לא esc_url_raw: הוא היה מקודד את {number}. sanitize_text_field שומר על התבנית.
+        $changes['tracking_url_base'] = sanitize_text_field($in['tracking_url_base'] ?? '');
         $tns = sanitize_text_field($in['tracking_notify_status'] ?? '');
         $valid_statuses = function_exists('wc_get_order_statuses') ? array_keys(wc_get_order_statuses()) : [];
         $changes['tracking_notify_status'] = in_array($tns, $valid_statuses, true) ? $tns : '';
