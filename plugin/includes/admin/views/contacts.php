@@ -6,7 +6,6 @@ $fstatus = sanitize_key($_GET['fstatus'] ?? '');
 $min_orders = max(0, (int) ($_GET['min_orders'] ?? 0));
 $paged = max(1, (int) ($_GET['paged'] ?? 1));
 $per = 50;
-$offset = ($paged - 1) * $per;
 
 $where = ['1=1'];
 $params = [];
@@ -22,6 +21,11 @@ $where_sql = implode(' AND ', $where);
 $total = (int) ($params
     ? $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $t WHERE $where_sql", $params))
     : $wpdb->get_var("SELECT COUNT(*) FROM $t WHERE $where_sql"));
+// הצמדת העמוד לטווח הקיים: כתובת ישנה עם paged גבוה (למשל אחרי ניקוי) הציגה
+// טבלה ריקה לצמיתות, בלי שום רמז לסיבה.
+$pages_total = $total > 0 ? (int) ceil($total / $per) : 1;
+$paged = min($paged, $pages_total);
+$offset = ($paged - 1) * $per;
 $rows = $wpdb->get_results($wpdb->prepare(
     "SELECT * FROM $t WHERE $where_sql ORDER BY last_order_at DESC LIMIT %d OFFSET %d",
     array_merge($params, [$per, $offset])

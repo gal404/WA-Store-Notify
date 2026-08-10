@@ -6,7 +6,6 @@ $filter_status = sanitize_key($_GET['fstatus'] ?? '');
 $search = sanitize_text_field($_GET['s'] ?? '');
 $paged = max(1, (int) ($_GET['paged'] ?? 1));
 $per = 50;
-$offset = ($paged - 1) * $per;
 
 $where = ['1=1'];
 $params = [];
@@ -23,6 +22,11 @@ $where_sql = implode(' AND ', $where);
 
 $count_sql = "SELECT COUNT(*) FROM $t WHERE $where_sql";
 $total = (int) ($params ? $wpdb->get_var($wpdb->prepare($count_sql, $params)) : $wpdb->get_var($count_sql));
+
+// הצמדת העמוד לטווח הקיים (ראה contacts.php) — מונע טבלה ריקה מכתובת ישנה
+$pages_total = $total > 0 ? (int) ceil($total / $per) : 1;
+$paged = min($paged, $pages_total);
+$offset = ($paged - 1) * $per;
 
 $rows_sql = "SELECT * FROM $t WHERE $where_sql ORDER BY id DESC LIMIT %d OFFSET %d";
 $rows = $wpdb->get_results($wpdb->prepare($rows_sql, array_merge($params, [$per, $offset])), ARRAY_A);

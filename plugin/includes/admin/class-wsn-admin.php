@@ -11,6 +11,7 @@ class WSN_Admin
     {
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'no_cache_screens']);
+        add_action('in_admin_footer', [__CLASS__, 'render_stamp']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
         add_action('admin_post_wsn_save_settings', [__CLASS__, 'handle_save_settings']);
         add_action('admin_post_wsn_save_templates', [__CLASS__, 'handle_save_templates']);
@@ -62,6 +63,42 @@ class WSN_Admin
         // רמז מפורש ל-CDN/פרוקסי שלא לשמור עותק של מסך ניהול
         header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0, private');
         header('Pragma: no-cache');
+    }
+
+    /**
+     * חותמת בתחתית מסכי התוסף — "קופסה שחורה" לאבחון מסך שנראה ריק:
+     *  • זמן ישן            → הדפדפן/פרוקסי מציג עותק שמור (קאש)
+     *  • זמן עדכני + ספירה גדולה מאפס, אבל הטבלה ריקה → סינון/עמוד בכתובת
+     *  • "שגיאת מסד"        → טבלה חסרה או הרשאות מסד
+     */
+    public static function render_stamp(): void
+    {
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification -- קריאה בלבד
+        if (strpos($page, 'wsn-') !== 0 || !current_user_can(self::CAP)) {
+            return;
+        }
+        try {
+            global $wpdb;
+            $user = wp_get_current_user();
+            $bits = [
+                'נוצר בשרת: ' . current_time('Y-m-d H:i:s'),
+                'גרסה ' . WSN_VERSION,
+                'משתמש: ' . ($user ? $user->user_login : '—'),
+            ];
+            foreach (['יומן' => WSN_Outbox::table(), 'מועדון' => WSN_Contacts::table()] as $label => $tbl) {
+                $wpdb->last_error = '';
+                $n = $wpdb->get_var('SELECT COUNT(*) FROM ' . $tbl);
+                $bits[] = ($n === null || $wpdb->last_error !== '')
+                    ? $label . ': שגיאת מסד (' . ($wpdb->last_error ?: 'טבלה חסרה') . ')'
+                    : $label . ': ' . (int) $n;
+            }
+            printf(
+                '<p class="description" dir="rtl" style="margin-top:10px">WSN · %s</p>',
+                esc_html(implode(' · ', $bits))
+            );
+        } catch (\Throwable $e) {
+            // חותמת אבחון בלבד — לעולם לא מפילה מסך
+        }
     }
 
     /** מסך עריכת הזמנה — גם קלאסי וגם HPOS */
