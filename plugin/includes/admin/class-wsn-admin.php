@@ -10,6 +10,7 @@ class WSN_Admin
     public static function init(): void
     {
         add_action('admin_menu', [__CLASS__, 'menu']);
+        add_action('admin_init', [__CLASS__, 'no_cache_screens']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
         add_action('admin_post_wsn_save_settings', [__CLASS__, 'handle_save_settings']);
         add_action('admin_post_wsn_save_templates', [__CLASS__, 'handle_save_templates']);
@@ -43,6 +44,24 @@ class WSN_Admin
         add_submenu_page('wsn-status', 'יומן הודעות', 'יומן', self::CAP, 'wsn-log', [__CLASS__, 'page_log']);
         add_submenu_page('wsn-status', 'מועדון לקוחות', 'מועדון', self::CAP, 'wsn-contacts', [__CLASS__, 'page_contacts']);
         add_submenu_page('wsn-status', 'קמפיינים', 'קמפיינים', self::CAP, 'wsn-campaigns', [__CLASS__, 'page_campaigns']);
+    }
+
+    /**
+     * מונע קאשינג של מסכי התוסף. הנתונים נקראים חיים מהמסד, ולכן דפדפן/פרוקסי
+     * ששמר עותק ישן מציג מסך "ריק" מבלי שתהיה תקלה בשרת — מה שנראה כאילו
+     * "אין נתונים במחשב אחר". admin_init רץ לפני שנשלח פלט, ולכן אפשר לשלוח כאן
+     * כותרות; headers_sent נבדק כדי לא להוציא אזהרה אם משהו הקדים לפלוט.
+     */
+    public static function no_cache_screens(): void
+    {
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification -- קריאה בלבד
+        if (strpos($page, 'wsn-') !== 0 || headers_sent()) {
+            return;
+        }
+        nocache_headers();
+        // רמז מפורש ל-CDN/פרוקסי שלא לשמור עותק של מסך ניהול
+        header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0, private');
+        header('Pragma: no-cache');
     }
 
     /** מסך עריכת הזמנה — גם קלאסי וגם HPOS */
@@ -124,10 +143,33 @@ class WSN_Admin
         echo '</nav>';
     }
 
+    /**
+     * מרנדר מסך. עטוף ב-try/catch כדי ששגיאה לא תשאיר *מסך לבן* בלי הסבר:
+     * וורדפרס כבר שלח את התפריט והכותרת, ולכן קריסה כאן נראית כמו "אין נתונים".
+     * במקום זה מוצגת הודעה עם הסיבה המדויקת (וגם נרשמת ללוג).
+     */
     private static function view(string $name, array $vars = []): void
     {
-        extract($vars, EXTR_SKIP);
-        include WSN_PLUGIN_DIR . 'includes/admin/views/' . $name . '.php';
+        $file = WSN_PLUGIN_DIR . 'includes/admin/views/' . $name . '.php';
+        if (!file_exists($file)) {
+            printf(
+                '<div class="notice notice-error"><p><b>קובץ תצוגה חסר:</b> <code>%s</code>. ההתקנה חלקית — התקן מחדש את התוסף (העלאת ה-zip והחלפת הקיים).</p></div>',
+                esc_html('views/' . $name . '.php')
+            );
+            return;
+        }
+        try {
+            extract($vars, EXTR_SKIP);
+            include $file;
+        } catch (\Throwable $e) {
+            error_log('WSN view error [' . $name . ']: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            printf(
+                '<div class="notice notice-error"><p><b>שגיאה בטעינת המסך.</b><br>%s<br><code>%s:%s</code></p></div>',
+                esc_html($e->getMessage()),
+                esc_html($e->getFile()),
+                esc_html((string) $e->getLine())
+            );
+        }
     }
 
     // ---- עמודים ----
@@ -141,8 +183,19 @@ class WSN_Admin
     {
         self::guard();
         $page = max(1, (int) ($_GET['paged'] ?? 1)); // phpcs:ignore WordPress.Security.NonceVerification -- קריאה בלבד
-        $data = WSN_Outbox::drafts_page($page, 15);
-        $data['items'] = self::enrich_drafts($data['items']);
+        try {
+            $data = WSN_Outbox::drafts_page($page, 15);
+            $data['items'] = self::enrich_drafts($data['items']);
+        } catch (\Throwable $e) {
+            error_log('WSN pending data error: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            printf(
+                '<div class="wrap wsn" dir="rtl"><h1>הודעות ממתינות לאישור</h1><div class="notice notice-error"><p><b>שגיאה בשליפת ההודעות.</b><br>%s<br><code>%s:%s</code></p></div></div>',
+                esc_html($e->getMessage()),
+                esc_html($e->getFile()),
+                esc_html((string) $e->getLine())
+            );
+            return;
+        }
         self::view('pending', ['data' => $data]);
     }
 

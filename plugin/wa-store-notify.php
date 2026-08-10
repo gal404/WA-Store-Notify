@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WA Store Notify — התראות וואטסאפ לחנות
  * Description: עדכוני וואטסאפ ללקוחות על מצב ההזמנה (WooCommerce), מועדון לקוחות ודיוור — דרך גשר מקומי במודל משיכה.
- * Version: 1.2.8
+ * Version: 1.2.9
  * Author: Pinookim
  * Requires Plugins: woocommerce
  * Requires PHP: 7.4
@@ -11,7 +11,7 @@
 
 defined('ABSPATH') || exit;
 
-define('WSN_VERSION', '1.2.8');
+define('WSN_VERSION', '1.2.9');
 define('WSN_PLUGIN_FILE', __FILE__);
 define('WSN_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WSN_PLUGIN_URL', plugin_dir_url(__FILE__));
