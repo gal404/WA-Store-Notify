@@ -11,6 +11,8 @@ foreach (['administrator', 'shop_manager'] as $role_name) {
 delete_option('wsn_bridge_status');
 delete_option('wsn_api_key_hash');
 wp_clear_scheduled_hook('wsn_daily_cleanup');
+wp_clear_scheduled_hook('wsn_bridge_watch');
+delete_option('wsn_bridge_down_alerted');
 
 // מחיקת נתונים עסקיים — רק אם המשתמש ביקש במפורש בהגדרות
 $settings = (array) get_option('wsn_settings', []);
