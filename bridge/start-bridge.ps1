@@ -30,5 +30,6 @@ if ($online) {
     & $pm2 save 2>&1 | Out-Null
 }
 
-# פותח את חלון הסטטוס (אם כבר פתוח — לא נפתח כפול)
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'open-dashboard.ps1')
+# פותח את חלון הקונסולה של השרת (לוג חי). אם כבר פתוח — לא נפתח כפול.
+# סגירת החלון לא עוצרת את השרת.
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'open-console.ps1')
