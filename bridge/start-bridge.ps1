@@ -30,6 +30,5 @@ if ($online) {
     & $pm2 save 2>&1 | Out-Null
 }
 
-# פותח את חלון הקונסולה של השרת (לוג חי). אם כבר פתוח — לא נפתח כפול.
-# סגירת החלון לא עוצרת את השרת.
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'open-console.ps1')
+# חלון הלוג לא נפתח כאן בכוונה — boot-start.bat מציג את הלוג בחלון שלו עצמו,
+# כדי שקיצור דרך בשולחן העבודה יפתח חלון אחד בלבד (ולא חלון שנסגר + חלון שני).
