@@ -4,6 +4,7 @@ const pacer = require('./pacer');
 const breaker = require('./breaker');
 const optout = require('./optout');
 const depcheck = require('./depcheck');
+const quiet = require('./logquiet');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -32,8 +33,9 @@ async function heartbeat() {
       }
     }
     lastHeartbeat = Date.now();
+    quiet.ok('heartbeat', 'heartbeat: התקשורת עם האתר חזרה לתקינות');
   } catch (e) {
-    console.error('heartbeat נכשל:', e.message);
+    quiet.fail('heartbeat', 'heartbeat נכשל: ' + e.message);
   }
 }
 
@@ -85,8 +87,9 @@ async function loop() {
   try {
     const res = await wp.claim(local.WORKER_ID, 3, kinds);
     batch = (res && res.messages) || [];
+    quiet.ok('claim', 'claim: התקשורת עם האתר חזרה לתקינות');
   } catch (e) {
-    console.error('claim נכשל:', e.message);
+    quiet.fail('claim', 'claim נכשל: ' + e.message);
     await sleep(20000);
     return;
   }
