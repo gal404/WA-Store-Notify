@@ -1,41 +1,44 @@
 @echo off
 REM ============================================================
-REM  THE one way to start the WA bridge.
-REM  Double-click it (or use the desktop shortcut): THIS window becomes the
-REM  server window and shows the live log. Closing it does NOT stop the
-REM  server - it keeps running under pm2. To really stop: stop-bridge.bat
+REM  WA Store Notify - bridge server
 REM
-REM  Also used by the "WA Store Notify Bridge" scheduled task at logon.
+REM  THIS WINDOW *IS* THE SERVER.
+REM  Closing this window STOPS the bridge - WhatsApp messages will not be
+REM  sent until it is opened again. That is intentional (requested behaviour).
+REM
+REM  While the window is open, a crash is recovered automatically:
+REM  the server is relaunched after a few seconds.
+REM
+REM  Opens automatically at logon via the "WA Store Notify Bridge" task.
 REM  NOTE: ASCII only - cmd.exe mangles UTF-8 comments and breaks the file.
 REM ============================================================
 
-REM UTF-8 first, otherwise Hebrew log lines show up as gibberish
+REM UTF-8 first, otherwise Hebrew output shows up as gibberish
 chcp 65001 >nul
 title WA Store Notify - server
 cd /d "%~dp0"
 
-echo ============================================
-echo   WA Store Notify - bridge
-echo ============================================
-echo.
-
-REM Make sure the bridge is running under pm2 (starts it only if it is down -
-REM restarting a healthy bridge can leave WhatsApp stuck at "authenticated")
-where pwsh >nul 2>&1
-if %errorLevel%==0 (
-    pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-bridge.ps1"
-) else (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-bridge.ps1"
+REM Safety: make sure no pm2-managed copy is running in the background.
+REM Two instances sharing the WhatsApp session folder corrupt it.
+if exist "%APPDATA%\npm\pm2.cmd" (
+    call "%APPDATA%\npm\pm2.cmd" delete wa-store-notify >nul 2>&1
+    call "%APPDATA%\npm\pm2.cmd" save --force >nul 2>&1
 )
 
-echo.
-echo --- live log (closing this window does NOT stop the server) ---
+echo ============================================
+echo   WA Store Notify - bridge
+echo   Closing this window STOPS the server.
+echo ============================================
 echo.
 
-REM Stream the live log in THIS window
-call "%APPDATA%\npm\pm2.cmd" logs wa-store-notify --lines 40
+:run
+node src\index.js
 
-REM If the log stream ever exits, keep the window open so the reason is visible
+REM Reaching here means the server process exited on its own (a crash).
+REM Closing the window never gets here - the child dies with the console.
 echo.
-echo [log stream ended]
-pause
+echo [%date% %time%] Server exited unexpectedly - restarting in 5 seconds...
+echo [Close this window to stop for good]
+timeout /t 5 /nobreak >nul
+echo.
+goto run
