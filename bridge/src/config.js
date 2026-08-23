@@ -6,6 +6,8 @@ const local = {
   API_KEY: process.env.API_KEY || '',
   PORT: Number(process.env.PORT || 3200),
   POLL_MS: Number(process.env.POLL_MS || 30000),
+  // מרווח ה-heartbeat (ms). ניתן להרחבה מ-.env אם האחסון מבקש פחות פניות.
+  HEARTBEAT_MS: Number(process.env.HEARTBEAT_MS || 60000),
   WORKER_ID: process.env.WORKER_ID || 'pc-home',
   // אימות לדשבורד — נדרש רק כשנחשפים דרך מנהרה (ngrok וכו').
   // בלי זה כל מי שמגיע לכתובת יכול לשלוח הודעות בשם החנות ולנתק את החשבון.

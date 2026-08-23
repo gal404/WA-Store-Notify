@@ -2,6 +2,10 @@ const { local } = require('./config');
 
 const BASE = `${local.WP_URL}/wp-json/wa-notify/v1`;
 
+// מזהה ייחודי לגשר. מאפשר לחברת האחסון להחריג לפי User-Agent במקום לפי
+// כתובת IP — כתובת ביתית מתחלפת, וכל החלפה שוברת את ההחרגה.
+const UA = 'WA-Store-Notify-Bridge/' + (require('../package.json').version || '0') + ' (+pinookim.co.il)';
+
 // כשלים חולפים (גמגום רשת, עומס רגעי בשרת) — שווה לנסות שוב לפני שמדווחים.
 // 4xx אחרים (401 מפתח שגוי, 404) לא יסתדרו מעצמם, ולכן נכשלים מיד.
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
@@ -17,7 +21,7 @@ function isRetryable(err) {
 async function once(method, path, body) {
   const opts = {
     method,
-    headers: { 'X-WSN-Api-Key': local.API_KEY, 'Content-Type': 'application/json' },
+    headers: { 'X-WSN-Api-Key': local.API_KEY, 'Content-Type': 'application/json', 'User-Agent': UA },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
 

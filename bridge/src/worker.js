@@ -35,6 +35,9 @@ async function heartbeat() {
     lastHeartbeat = Date.now();
     quiet.ok('heartbeat', 'heartbeat: התקשורת עם האתר חזרה לתקינות');
   } catch (e) {
+    // מעדכנים את החותמת גם בכשל: אחרת התנאי בלולאה נשאר אמיתי והגשר
+    // מנסה heartbeat בכל סיבוב — הצפה מיותרת של האתר בזמן תקלה.
+    lastHeartbeat = Date.now();
     quiet.fail('heartbeat', 'heartbeat נכשל: ' + e.message);
   }
 }
@@ -63,7 +66,7 @@ async function processOne(msg) {
 
 async function loop() {
   // heartbeat אם הגיע הזמן
-  if (Date.now() - lastHeartbeat > 60000) {
+  if (Date.now() - lastHeartbeat > local.HEARTBEAT_MS) {
     await heartbeat();
   }
 
